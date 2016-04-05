@@ -1,4 +1,7 @@
 #Gleam.solver
+
+[Check out Gleam.helper](https://github.com/Citrinate/gleamHelper) if you're looking for the convenience this script provides, but without any of the automation.
+
 ##Purpose
 Automate entry into both types of Gleam.io Giveaways: Instant-wins and Raffles
 
