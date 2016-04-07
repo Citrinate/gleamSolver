@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Auto-completes Gleam.io contest entries
 // @author Citrinate
-// @version 1.3.6
+// @version 1.3.7
 // @match *://gleam.io/*
 // @match https://steamcommunity.com/app/329630
 // @updateURL https://raw.githubusercontent.com/Citrinate/gleamSolver/master/gleamSolver.user.js
@@ -21,7 +21,7 @@
 	// "undo_none (Raffle mode): All public record of social media activity should remain on the user's accounts
 	// "undo_some" (Instant-win Full mode): Mark all entries and remove all possible public record of social media activity on the user's accounts
 	var valid_modes = ["undo_all", "undo_none", "undo_some"],
-		current_version = "1.3.6",
+		current_version = "1.3.7",
 		entry_delay_min = 500,
 		entry_delay_max = 3000;
 
@@ -65,7 +65,10 @@
 			for(var i = 0; i < entries.length; i++) {
 				var entry = angular.element(entries[i]).scope();
 				
-				if(gleam.canEnter(entry.entry_method) && (
+				// make sure that we can see and complete the entry
+				if(gleam.canEnter(entry.entry_method) && 
+					entry.entry_method.mandatory &&
+					!entry.entry_method.entering && (
 						!entry.entry_method.requires_authentication || 
 						authentications[entry.entry_method.provider] === true
 					)
@@ -75,7 +78,7 @@
 					num_entries++;
 					
 					(function(current_entry, entry, delay) {
-						var temp_interval = setTimeout(function() { clearInterval(temp_interval);						
+						setTimeout(function() {
 							// check to see if the giveaway ended or if we've already gotten a reward
 							if(!gleam.showPromotionEnded() && !(
 									gleam.campaign.campaign_type == "Reward" &&
@@ -86,6 +89,7 @@
 								gleamSolverUI.showNotification("entry_progress", current_entry + "/" + num_entries + " entries processed");							
 								if(current_entry == num_entries) {
 									gleamSolverUI.hideNotification("entry_progress");
+									gleamSolverUI.showUI();
 								}
 								
 								try {
@@ -129,7 +133,7 @@
 											case "pinterest_follow":
 											case "pinterest_pin":
 											case "youtube_comment":
-											//case "youtube_video": probably better not to do this one yet, as it can be easily detected
+											case "youtube_video":
 											case "twitter_hashtags":
 												handleQuestionEntry(entry);
 												break;
@@ -170,7 +174,7 @@
 												handleClickEntry(entry);
 												break;
 
-											//case "facebook_media": seems to be bugged
+											case "facebook_media":
 											case "instagram_choose":
 											case "twitter_media":
 												handleMediaShare(entry);
@@ -296,7 +300,7 @@
 				entry.saveEntryDetails(entry.entry_method);
 			} else {
 				//TODO: there's probably more templates that I'm missing here.
-				// i've seen one with a dropdown box before, but haven't seen it again since
+				//      i've seen one with a dropdown box before, but haven't seen it again since
 			}
 			markEntryCompleted(entry);
 		}
@@ -308,9 +312,11 @@
 
 			if(entry.entry_method.entry_type == "youtube_video") {
 				// asks for a youtube video link, and actually verifies that it's real
-				//TODO: grab a random youtube link off youtube and use that instead
-				// using a predefined link makes detection too easy
+				
+				//TODO: grab a random youtube link off youtube and use that instead,
+				//      using a predefined link makes detection too easy
 				rand_string = "https://www.youtube.com/watch?v=oHg5SJYRHA0";
+				return;
 			} else {
 				if(entry.entry_method.entry_type == "twitter_hashtags") {
 					// gleam wants a link to a tweet here, but doesn't actually check the link
@@ -370,6 +376,12 @@
 				command_hub.src = command_hub_url;
 				document.body.appendChild(command_hub);
 
+				window.addEventListener("message", function(event) {
+					if(event.source == command_hub.contentWindow && event.data.status == "ready") {
+						command_hub_loaded = true;
+					}
+				});
+				
 				function handleGroup(entry, group_name, group_id) {
 					// make contact with the command hub
 					command_hub.contentWindow.postMessage({action: "join", name: group_name, id: group_id}, "*");
@@ -398,14 +410,19 @@
 
 				return {
 					handleEntry: function(entry) {
+						var group_name = entry.entry_method.config3,
+							group_id = entry.entry_method.config4;
+						
 						if(command_hub_loaded) {
-							handleGroup(entry, entry.entry_method.config3, entry.entry_method.config4);
+							handleGroup(entry, group_name, group_id);
 						} else {
 							// wait for the command hub to load
-							command_hub.addEventListener("load", function() {
-								command_hub_loaded = true;
-								handleGroup(entry, entry.entry_method.config3, entry.entry_method.config4);
-							});
+							var temp_interval = setInterval(function() {
+								if(command_hub_loaded) {
+									clearInterval(temp_interval);
+									handleGroup(entry, group_name, group_id);
+								}
+							}, 500);
 						}
 					}
 				};
@@ -429,12 +446,6 @@
 						gleam = angular.element(jQuery(".popup-blocks-container")).scope();
 						script_mode = determineMode();
 						checkAuthentications();
-
-						// reveal hidden entries
-						for(var i = 0; i < gleam.entry_methods.length; i++) {
-							gleam.entry_methods[i].mandatory = true;
-						}
-
 						gleamSolverUI.loadUI();
 					}
 				}, 500);
@@ -442,7 +453,7 @@
 
 			completeEntries: function() {
 				handleEntries();
-			},			
+			},
 			
 			getMode: function() {
 				return script_mode;
@@ -452,52 +463,103 @@
 				if(valid_modes.indexOf(mode) != -1) {
 					script_mode = mode;
 				}
+			},
+
+			getQuantity: function() {
+				return gleam.incentives[0].quantity;
+			},
+			
+			getRemainingQuantity: function() {
+				if(gleam.campaign.campaign_type == "Reward") {
+					var est_remaining = gleam.incentives[0].quantity - Math.floor(gleam.campaign.entry_count/gleam.incentives[0].actions_required);
+					return Math.max(0, est_remaining);
+				} else {
+					return false;
+				}
+			},
+
+			// estimate the probability of winning a raffle
+			calcWinChance: function() {
+				var your_entries = gleam.contestantEntries(),
+					total_entries = gleam.campaign.entry_count,
+					num_rewards = gleam.incentives[0].quantity;
+					
+				return Math.round(10000 * (1 - Math.pow((total_entries - your_entries) / total_entries, num_rewards))) / 100;
 			}
 		};
 	})();
 
 	var gleamSolverUI = (function() {
-		var gleam_solver_container = null,
-			active_errors = [],
+		var active_errors = [],
 			active_notifications = {},
+			disable_ui_click = false,
 		    button_class = "btn btn-embossed btn-info",
 		    button_style = { margin: "2px 0px 2px 16px" },
 			selectbox_style = { margin: "0px 0px 0px 16px" },
 		    container_style = { fontSize: "18px", left: "0px", position: "fixed", top: "0px", width: "100%", zIndex: "9999999999" },
 			notification_style = { background: "#000", boxShadow: "-10px 2px 10px #000", color: "#3498db", padding: "8px", width: "100%", },
-			error_style = { background: "#e74c3c", boxShadow: "-10px 2px 10px #e74c3c", color: "#fff", padding: "8px", width: "100%" };
-
+			error_style = { background: "#e74c3c", boxShadow: "-10px 2px 10px #e74c3c", color: "#fff", padding: "8px", width: "100%" },
+			quantity_style = { fontStyle: "italic", margin: "12px 0px 0px 0px" },
+			win_chance_style = { display: "inline-block", fontSize: "14px", lineHeight: "14px", position: "relative", top: "-4px" },		
+			win_chance_container = jQuery("<span>", { css: win_chance_style }),
+			gleam_solver_container = jQuery("<div>", { css: container_style }),
+			gleam_solver_main_ui = null;
+			
 		// push the page down to make room for notifications
 		function updateTopMargin() {
 			jQuery("html").css("margin-top", (gleam_solver_container.is(":visible") ? gleam_solver_container.outerHeight() : 0));
+		}
+		
+		function showQuantity() {
+			var num_rewards = gleamSolver.getQuantity(),
+				num_remaining = gleamSolver.getRemainingQuantity(),
+				msg = "(" + num_rewards.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " " + (num_rewards == 1 ? "reward" : "rewards") + " being given away" + 
+					(num_remaining === false ? "" : ";<br>~" + num_remaining.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " remaining") + ")";
+
+			$(".incentive-description h3").append(jQuery("<div>", { html: msg, css: quantity_style }));
+		}
+		
+		function updateWinChance() {
+			win_chance_container.text("(~" + gleamSolver.calcWinChance() + "% to win)");
 		}
 
 		return {
 			// print the UI
 			loadUI: function() {
-				gleam_solver_container = jQuery("<div>", { css: container_style });
-				jQuery("body").append(gleam_solver_container);
-				jQuery("html").css("overflow-y", "scroll");
-				gleam_solver_container.append(
+				gleam_solver_main_ui = 					
 					jQuery("<div>", { css: notification_style }).append(
-						jQuery("<span>", { text: "Gleam.solver v" + current_version })).append(
-						jQuery("<select>", { css: selectbox_style }).append(
-							jQuery("<option>", { text: "Instant-win Mode", value: "undo_all", selected: (gleamSolver.getMode() == "undo_all") })).append(
-							jQuery("<option>", { text: "Raffle Mode", value: "undo_none", selected: (gleamSolver.getMode() == "undo_none") })).append(
-							jQuery("<option>", { text: "Instant-win Full Mode", value: "undo_some", selected: (gleamSolver.getMode() == "undo_some") })).change(function() {
-								gleamSolver.setMode(jQuery(this).val());
-							})
-						).append(
-						jQuery("<a>", { text: "Click here to auto-complete", class: button_class, css: button_style}).click(function() {
-							jQuery(this).unbind("click");
+					jQuery("<span>", { text: "Gleam.solver v" + current_version })).append(
+					jQuery("<select>", { css: selectbox_style }).append(
+						jQuery("<option>", { text: "Instant-win Mode", value: "undo_all", selected: (gleamSolver.getMode() == "undo_all") })).append(
+						jQuery("<option>", { text: "Raffle Mode", value: "undo_none", selected: (gleamSolver.getMode() == "undo_none") })).append(
+						jQuery("<option>", { text: "Instant-win Full Mode", value: "undo_some", selected: (gleamSolver.getMode() == "undo_some") })).change(function() {
+							gleamSolver.setMode(jQuery(this).val());
+						})).append(
+					jQuery("<a>", { text: "Click here to auto-complete", class: button_class, css: button_style}).click(function() {
+						if(!disable_ui_click) {
+							// prevent double click
+							disable_ui_click = true;
+							
 							jQuery(this).parent().slideUp(400, function() {
 								updateTopMargin();
 								gleamSolver.completeEntries();
+								disable_ui_click = false;
 							});
-						})
-					)
+						}
+					})
 				);
+				
+				jQuery("body").append(gleam_solver_container);
+				jQuery("#current-entries .status.ng-binding").append(win_chance_container);
+				jQuery("html").css("overflow-y", "scroll");
+				gleam_solver_container.append(gleam_solver_main_ui);			
+				setInterval(updateWinChance, 500);
+				showQuantity();
 				updateTopMargin();
+			},
+			
+			showUI: function() {
+				gleam_solver_main_ui.slideDown(400);
 			},
 
 			// print an error
@@ -562,6 +624,8 @@
 				}
 			});
 		}
+		
+		parent.postMessage({status: "ready"}, "*");
 
 		// wait for our parent to tell us what to do
 		window.addEventListener("message", function(event) {
