@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Auto-completes Gleam.io contest entries
 // @author Citrinate
-// @version 1.3.7
+// @version 1.3.8
 // @match *://gleam.io/*
 // @match https://steamcommunity.com/app/329630
 // @updateURL https://raw.githubusercontent.com/Citrinate/gleamSolver/master/gleamSolver.user.js
@@ -21,7 +21,7 @@
 	// "undo_none (Raffle mode): All public record of social media activity should remain on the user's accounts
 	// "undo_some" (Instant-win Full mode): Mark all entries and remove all possible public record of social media activity on the user's accounts
 	var valid_modes = ["undo_all", "undo_none", "undo_some"],
-		current_version = "1.3.7",
+		current_version = "1.3.8",
 		entry_delay_min = 500,
 		entry_delay_max = 3000;
 
@@ -67,8 +67,10 @@
 				
 				// make sure that we can see and complete the entry
 				if(gleam.canEnter(entry.entry_method) && 
-					entry.entry_method.mandatory &&
 					!entry.entry_method.entering && (
+						entry.entry_method.mandatory ||
+						gleam.entry_methods.length - gleam.nonMandatoryEntriesCount() <= gleam.contestantEntries()
+					) && (
 						!entry.entry_method.requires_authentication || 
 						authentications[entry.entry_method.provider] === true
 					)
