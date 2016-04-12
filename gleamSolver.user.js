@@ -90,7 +90,6 @@
 					!entry.entry_method.entering &&  // We're not already entering
 					(!gleam.campaign.details_first || gleam.contestantState.contestant.completed_details) && // We don't need to provide details before entering anything
 					(!(entry.entry_method.auth_for_details || entry.entry_method.requires_details) || gleam.contestantState.contestant.completed_details) && // We've don't need to provide details before attempting this entry
-					!entry.requiresMandatoryActions() && // The entry is visible
 					(!entry.entry_method.requires_authentication || authentications[entry.entry_method.provider] === true) // The neccessary account is linked
 				) {
 					// Wait a random amount of time between each attempt, to appear more human
