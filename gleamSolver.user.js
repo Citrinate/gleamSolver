@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.1
+// @version 1.4.2
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -90,7 +90,7 @@
 					!entry.entry_method.entering &&  // We're not already entering
 					(!gleam.campaign.details_first || gleam.contestantState.contestant.completed_details) && // We don't need to provide details before entering anything
 					(!(entry.entry_method.auth_for_details || entry.entry_method.requires_details) || gleam.contestantState.contestant.completed_details) && // We've don't need to provide details before attempting this entry
-					(entry.entry_method.mandatory || gleam.contestantEntries() >= gleam.entry_methods.length - gleam.nonMandatoryEntriesCount()) &&  // The entry is visible
+					!entry.requiresMandatoryActions() && // The entry is visible
 					(!entry.entry_method.requires_authentication || authentications[entry.entry_method.provider] === true) // The neccessary account is linked
 				) {
 					// Wait a random amount of time between each attempt, to appear more human
@@ -457,7 +457,7 @@
 						if(undoEntry()) {
 							// Determine what groups the user is already a member of
 							$(response.responseText).find("a[href^='https://steamcommunity.com/groups/']").each(function() {
-								var group_name = $(this).attr("href").replace("https://steamcommunity.com/groups/", "");
+								var group_name = $(this).attr("href").replace("https://steamcommunity.com/groups/", "").toLowerCase();
 
 								if(group_name.indexOf("/") == -1) {
 									active_groups.push(group_name);
@@ -547,7 +547,7 @@
 					 *
 					 */
 					handleEntry: function(entry) {
-						var group_name = entry.entry_method.config3,
+						var group_name = entry.entry_method.config3.toLowerCase(),
 							group_id = entry.entry_method.config4;
 
 						markEntryLoading(entry);
