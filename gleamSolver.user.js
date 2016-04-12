@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.5
+// @version 1.4.6
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -63,7 +63,7 @@
 
 				for(var i = 0; i < authentication_data.length; i++) {
 					var current_authentication = authentication_data[i];
-					authentications[current_authentication.provider] = !current_authentication.expired;
+					authentications[current_authentication.provider] = current_authentication;
 				}
 			}
 		}
@@ -79,6 +79,7 @@
 
 			// Jumble the order
 			entries.sort(function() { return 0.5 - Math.random(); });
+			checkAuthentications();
 			num_entries_loading = 0;
 
 			for(var i = 0; i < entries.length; i++) {
@@ -90,7 +91,7 @@
 					!entry.entry_method.entering &&  // We're not already entering
 					(!gleam.campaign.details_first || gleam.contestantState.contestant.completed_details) && // We don't need to provide details before entering anything
 					(!(entry.entry_method.auth_for_details || entry.entry_method.requires_details) || gleam.contestantState.contestant.completed_details) && // We've don't need to provide details before attempting this entry
-					(!entry.entry_method.requires_authentication || authentications[entry.entry_method.provider] === true) // The neccessary account is linked
+					(!entry.entry_method.requires_authentication || (typeof authentications[entry.entry_method.provider] !== "undefined" && authentications[entry.entry_method.provider].expired !== true)) // The neccessary account is linked
 				) {
 					// Wait a random amount of time between each attempt, to appear more human
 					delay += Math.floor(Math.random() * (entry_delay_max - entry_delay_min)) + entry_delay_min;
@@ -220,10 +221,14 @@
 
 									// Wait until all the entries are finished before showing the UI again
 									var temp_interval = setInterval(function() {
-										if(gleam.entry_methods.filter(function(i) { return i.entering === true; }).length === 0) {
-											clearInterval(temp_interval);
-											gleamSolverUI.showUI();
+										for(var j = 0; j < gleam.entry_methods.length; j++) {
+											if(gleam.entry_methods[j].entering === true) {
+												return;
+											}
 										}
+
+										clearInterval(temp_interval);
+										gleamSolverUI.showUI();
 									}, 500);
 								}
 							} else {
@@ -495,6 +500,10 @@
 						// We're not logged in, try to mark it anyway incase we're already a member of the group.
 						markEntryCompleted(entry);
 						gleamSolverUI.showError('You must be logged into <a href="https://steamcommunity.com" style="color: #fff" target="_blank">steamcommunity.com</a>');
+					} else if(authentications.steam.uid != steam_id) {
+						// We're not logged into the correct account, try to mark it anyway incase we're already a member of the group.
+						markEntryNotLoading(entry);
+						gleamSolverUI.showError('You must be logged into the Steam account that\'s linked to Gleam.io: <a href="https://steamcommunity.com/profiles/' + authentications.steam.uid + '/" style="color: #fff" target="_blank">https://steamcommunity.com/profiles/' + authentications.steam.uid + '/</a>');
 					} else if(active_groups === null) {
 						// Couldn't get user's group data, try to mark it anyway incase we're already a member of the group.
 						markEntryCompleted(entry);
@@ -595,6 +604,7 @@
 				var tweet_delay = 20 * 1000, // How long to wait for a tweet to appear
 					auth_token = null,
 					user_handle = null,
+					user_id = null,
 					deleted_tweets = [], // Used to make sure we dont try to delete the same (re)tweet more than once
 					ready = false;
 
@@ -608,8 +618,10 @@
 						onload: function(response) {
 							auth_token = $($(response.responseText).find("input[id='authenticity_token']").get(0)).attr("value");
 							user_handle = $(response.responseText).find(".account-group.js-mini-current-user").attr("data-screen-name");
+							user_id = $(response.responseText).find(".account-group.js-mini-current-user").attr("data-user-id");
 							auth_token = typeof auth_token == "undefined" ? null : auth_token;
 							user_handle = typeof user_handle == "undefined" ? null : user_handle;
+							user_id = typeof user_id == "undefined" ? null : user_id;
 							ready = true;
 						}
 					});
@@ -619,9 +631,14 @@
 				 * Decide what to do for this entry
 				 */
 				function handleTwitterEntry(entry) {
-					if(undoEntry() && (auth_token === null || user_handle === null)) {
+					if(undoEntry() && (auth_token === null || user_handle === null || user_id === null)) {
+						// We're not logged in
 						markEntryNotLoading(entry);
 						gleamSolverUI.showError('You must be logged into <a href="https://twitter.com" style="color: #fff" target="_blank">twitter.com</a>');
+					} else if(undoEntry() && authentications.twitter.uid != user_id) {
+						// We're not logged into the correct account
+						markEntryNotLoading(entry);
+						gleamSolverUI.showError('You must be logged into the Twitter account that\'s linked to Gleam.io: <a href="https://twitter.com/profiles/' + authentications.twitter.reference + '/" style="color: #fff" target="_blank">https://twitter.com/' + authentications.twitter.reference + '</a>');
 					} else {
 						switch(entry.entry_method.entry_type) {
 							case "twitter_follow": handleTwitterFollowEntry(entry); break;
@@ -638,16 +655,20 @@
 				function handleTwitterFollowEntry(entry) {
 					var twitter_handle = entry.entry_method.config1;
 
-					// Determine if we're following this user before completing the entry
-					getTwitterUserData(twitter_handle, function(twitter_id, already_following) {
-						// Complete the entry
-						markEntryCompleted(entry, function(success) {
-							// Depending on mode and if we were already following, unfollow the user
-							if(success && undoEntry() && !already_following) {
-								deleteTwitterFollow(twitter_handle, twitter_id);
-							}
+					if(!undoEntry()) {
+						markEntryCompleted(entry);
+					} else {
+						// Determine if we're following this user before completing the entry
+						getTwitterUserData(twitter_handle, function(twitter_id, already_following) {
+							// Complete the entry
+							markEntryCompleted(entry, function(success) {
+								// Depending on mode and if we were already following, unfollow the user
+								if(success && !already_following) {
+									deleteTwitterFollow(twitter_handle, twitter_id);
+								}
+							});
 						});
-					});
+					}
 				}
 
 				/**
@@ -655,25 +676,20 @@
 				 * @return {Boolean} is_following - True for "following", false for "not following"
 				 */
 				function getTwitterUserData(twitter_handle, callback) {
-					if(!undoEntry()) {
-						// We're never going to need this information, so just return null
-						callback(null, null);
-					} else {
-						GM_xmlhttpRequest({
-							url: "https://twitter.com/" + twitter_handle,
-							method: "GET",
-							onload: function(response) {
-								var twitter_id = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle.toLowerCase() + "'][data-user-id]").get(0)).attr("data-user-id"),
-									is_following = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle.toLowerCase() + "'][data-you-follow]").get(0)).attr("data-you-follow");
+					GM_xmlhttpRequest({
+						url: "https://twitter.com/" + twitter_handle,
+						method: "GET",
+						onload: function(response) {
+							var twitter_id = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle.toLowerCase() + "'][data-user-id]").get(0)).attr("data-user-id"),
+								is_following = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle.toLowerCase() + "'][data-you-follow]").get(0)).attr("data-you-follow");
 
-								if(typeof twitter_id !== "undefined" && typeof is_following !== "undefined") {
-									callback(twitter_id, is_following !== "false");
-								} else {
-									callback(null, null);
-								}
+							if(typeof twitter_id !== "undefined" && typeof is_following !== "undefined") {
+								callback(twitter_id, is_following !== "false");
+							} else {
+								callback(null, null);
 							}
-						});
-					}
+						}
+					});
 				}
 
 				/**
@@ -745,7 +761,7 @@
 								var tweet_time = $(this).find("span").attr("data-time-ms"),
 									tweet_id = $(this).attr("href").match(/\/([0-9]+)/);
 
-								if(typeof tweet_time != "undefined" && tweet_id !== null) {
+								if(typeof tweet_time !== "undefined" && tweet_id !== null) {
 									if(deleted_tweets.indexOf(tweet_id[1]) == -1 && tweet_time > start_time && (tweet_time < end_time || tweet_time > now)) {
 										// return the first match
 										found_tweet = true;
@@ -830,7 +846,6 @@
 							if(typeof gleam.campaign.entry_count !== "undefined") {
 								clearInterval(another_temp_interval);
 								script_mode = determineMode();
-								checkAuthentications();
 								gleamSolverUI.loadUI();
 							}
 						}, 500);
