@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.4
+// @version 1.4.5
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -663,8 +663,8 @@
 							url: "https://twitter.com/" + twitter_handle,
 							method: "GET",
 							onload: function(response) {
-								var twitter_id = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle + "'][data-user-id]").get(0)).attr("data-user-id"),
-									is_following = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle + "'][data-you-follow]").get(0)).attr("data-you-follow");
+								var twitter_id = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle.toLowerCase() + "'][data-user-id]").get(0)).attr("data-user-id"),
+									is_following = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle.toLowerCase() + "'][data-you-follow]").get(0)).attr("data-you-follow");
 
 								if(typeof twitter_id !== "undefined" && typeof is_following !== "undefined") {
 									callback(twitter_id, is_following !== "false");
