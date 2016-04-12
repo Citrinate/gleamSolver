@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.3
+// @version 1.4.4
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -111,7 +111,6 @@
 									accounts, or they do, and the script is capable of then deleting those records. */
 									switch(entry.entry_method.entry_type) {
 										case "download_app":
-										case "facebook_enter":
 										case "facebook_visit":
 										case "googleplus_visit":
 										case "instagram_enter":
@@ -122,6 +121,10 @@
 										case "twitter_enter":
 										case "youtube_subscribe":
 											handleClickEntry(entry);
+											break;
+
+										case "facebook_enter":
+											handleSpecialClickEntry(entry);
 											break;
 
 										case "steam_join_group":
@@ -290,9 +293,18 @@
 		/**
 		 * Trick gleam into thinking we've clicked a link
 		 */
-		function handleClickEntry(entry, trigger, callback) {
+		function handleClickEntry(entry, callback) {
 			markEntryLoading(entry);
 			entry.triggerVisit(entry.entry_method.id);
+			markEntryCompleted(entry, callback);
+		}
+
+		/**
+		 *
+		 */
+		function handleSpecialClickEntry(entry, callback) {
+			markEntryLoading(entry);
+			entry.saveEntryDetails(entry.entry_method);
 			markEntryCompleted(entry, callback);
 		}
 
@@ -629,7 +641,7 @@
 					// Determine if we're following this user before completing the entry
 					getTwitterUserData(twitter_handle, function(twitter_id, already_following) {
 						// Complete the entry
-						handleClickEntry(entry, function(success) {
+						markEntryCompleted(entry, function(success) {
 							// Depending on mode and if we were already following, unfollow the user
 							if(success && undoEntry() && !already_following) {
 								deleteTwitterFollow(twitter_handle, twitter_id);
@@ -651,8 +663,8 @@
 							url: "https://twitter.com/" + twitter_handle,
 							method: "GET",
 							onload: function(response) {
-								var twitter_id = $($(response.responseText).find("[data-screen-name='" + twitter_handle + "'][data-user-id]").get(0)).attr("data-user-id"),
-									is_following = $($(response.responseText).find("[data-screen-name='" + twitter_handle + "'][data-you-follow]").get(0)).attr("data-you-follow");
+								var twitter_id = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle + "'][data-user-id]").get(0)).attr("data-user-id"),
+									is_following = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle + "'][data-you-follow]").get(0)).attr("data-you-follow");
 
 								if(typeof twitter_id !== "undefined" && typeof is_following !== "undefined") {
 									callback(twitter_id, is_following !== "false");
@@ -729,7 +741,7 @@
 								now = +new Date();
 
 							// reverse the order so that we're looking at oldest to newest
-							$($(response.responseText).find("a[href*='" + user_handle + "/status/']").get().reverse()).each(function() {
+							$($(response.responseText.toLowerCase()).find("a[href*='" + user_handle.toLowerCase() + "/status/']").get().reverse()).each(function() {
 								var tweet_time = $(this).find("span").attr("data-time-ms"),
 									tweet_id = $(this).attr("href").match(/\/([0-9]+)/);
 
