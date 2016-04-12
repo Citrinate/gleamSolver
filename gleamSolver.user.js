@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.2
+// @version 1.4.3
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
