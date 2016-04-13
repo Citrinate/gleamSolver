@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.6
+// @version 1.4.7
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -90,8 +90,8 @@
 				if(gleam.canEnter(entry.entry_method) && // We can enter
 					!entry.entry_method.entering &&  // We're not already entering
 					(!gleam.campaign.details_first || gleam.contestantState.contestant.completed_details) && // We don't need to provide details before entering anything
-					(!(entry.entry_method.auth_for_details || entry.entry_method.requires_details) || gleam.contestantState.contestant.completed_details) && // We've don't need to provide details before attempting this entry
-					(!entry.entry_method.requires_authentication || (typeof authentications[entry.entry_method.provider] !== "undefined" && authentications[entry.entry_method.provider].expired !== true)) // The neccessary account is linked
+					(!(entry.entry_method.auth_for_details || entry.entry_method.requires_details) || gleam.contestantState.contestant.completed_details) && // We don't need to provide details before attempting this entry
+					(!entry.entry_method.requires_authentication || (typeof authentications[entry.entry_method.provider] !== "undefined" && authentications[entry.entry_method.provider].expired === false)) // The neccessary account is linked
 				) {
 					// Wait a random amount of time between each attempt, to appear more human
 					delay += Math.floor(Math.random() * (entry_delay_max - entry_delay_min)) + entry_delay_min;
@@ -499,15 +499,19 @@
 					if(steam_id === null || session_id === null || process_url === null) {
 						// We're not logged in, try to mark it anyway incase we're already a member of the group.
 						markEntryCompleted(entry);
-						gleamSolverUI.showError('You must be logged into <a href="https://steamcommunity.com" style="color: #fff" target="_blank">steamcommunity.com</a>');
+						gleamSolverUI.showError('You must be logged into <a href="https://steamcommunity.com" style="color: #fff" target="_blank">steamcommunity.com</a>. ' +
+							'Please login to Steam Community and reload the page.');
 					} else if(authentications.steam.uid != steam_id) {
 						// We're not logged into the correct account, try to mark it anyway incase we're already a member of the group.
 						markEntryNotLoading(entry);
-						gleamSolverUI.showError('You must be logged into the Steam account that\'s linked to Gleam.io: <a href="https://steamcommunity.com/profiles/' + authentications.steam.uid + '/" style="color: #fff" target="_blank">https://steamcommunity.com/profiles/' + authentications.steam.uid + '/</a>');
+						gleamSolverUI.showError('You must be logged into the Steam account that\'s linked to Gleam.io ' +
+							'(<a href="https://steamcommunity.com/profiles/' + authentications.steam.uid + '/" style="color: #fff" target="_blank">' +
+							'steamcommunity.com/profiles/' + authentications.steam.uid + '/</a>). Please login to the linked account and then reload the page.');
 					} else if(active_groups === null) {
 						// Couldn't get user's group data, try to mark it anyway incase we're already a member of the group.
 						markEntryCompleted(entry);
-						gleamSolverUI.showError("Unable to determine what Steam groups you're a member of.  Please make sure you're a member of at least 1 Steam group to use this script.");
+						gleamSolverUI.showError("Unable to determine what Steam groups you're a member of.  " +
+							"Please make sure you're a member of at least 1 Steam group, and then reload the page.");
 					} else {
 						if(active_groups.indexOf(group_name) != -1) {
 							// User was already a member
@@ -631,20 +635,28 @@
 				 * Decide what to do for this entry
 				 */
 				function handleTwitterEntry(entry) {
-					if(undoEntry() && (auth_token === null || user_handle === null || user_id === null)) {
-						// We're not logged in
-						markEntryNotLoading(entry);
-						gleamSolverUI.showError('You must be logged into <a href="https://twitter.com" style="color: #fff" target="_blank">twitter.com</a>');
-					} else if(undoEntry() && authentications.twitter.uid != user_id) {
-						// We're not logged into the correct account
-						markEntryNotLoading(entry);
-						gleamSolverUI.showError('You must be logged into the Twitter account that\'s linked to Gleam.io: <a href="https://twitter.com/profiles/' + authentications.twitter.reference + '/" style="color: #fff" target="_blank">https://twitter.com/' + authentications.twitter.reference + '</a>');
+					if(typeof authentications.twitter == "undefined") {
+						// The user doesn't have a Twitter account linked, but it's still sometimes possible to complete Twitter entries without one
+						handleClickEntry(entry);
 					} else {
-						switch(entry.entry_method.entry_type) {
-							case "twitter_follow": handleTwitterFollowEntry(entry); break;
-							case "twitter_retweet": handleTwitterTweetEntry(entry, true); break;
-							case "twitter_tweet": handleTwitterTweetEntry(entry, false); break;
-							default: break;
+						if(undoEntry() && (auth_token === null || user_handle === null || user_id === null)) {
+							// We're not logged in
+							markEntryNotLoading(entry);
+							gleamSolverUI.showError('You must be logged into <a href="https://twitter.com" style="color: #fff" target="_blank">twitter.com</a>. ' +
+								'Please login to Twitter and then reload the page.');
+						} else if(undoEntry() && authentications.twitter.uid != user_id) {
+							// We're not logged into the correct account
+							markEntryNotLoading(entry);
+							gleamSolverUI.showError('You must be logged into the Twitter account that\'s linked to Gleam.io ' +
+								'(<a href="https://twitter.com/profiles/' + authentications.twitter.reference + '/" style="color: #fff" target="_blank">' +
+								'twitter.com/' + authentications.twitter.reference + '</a>). Please login to the linked account and then reload the page.');
+						} else {
+							switch(entry.entry_method.entry_type) {
+								case "twitter_follow": handleTwitterFollowEntry(entry); break;
+								case "twitter_retweet": handleTwitterTweetEntry(entry, true); break;
+								case "twitter_tweet": handleTwitterTweetEntry(entry, false); break;
+								default: break;
+							}
 						}
 					}
 				}
@@ -661,9 +673,12 @@
 						// Determine if we're following this user before completing the entry
 						getTwitterUserData(twitter_handle, function(twitter_id, already_following) {
 							// Complete the entry
-							markEntryCompleted(entry, function(success) {
+							markEntryCompleted(entry, function() {
 								// Depending on mode and if we were already following, unfollow the user
-								if(success && !already_following) {
+								if(twitter_id === null) {
+									gleamSolverUI.showError('Failed to unfollow Twitter user: ' +
+										'<a href="https://twitter.com/' + twitter_handle + '" style="color: #fff" target="_blank">' + twitter_handle + '</a>');
+								} else if(!already_following) {
 									deleteTwitterFollow(twitter_handle, twitter_id);
 								}
 							});
@@ -672,8 +687,38 @@
 				}
 
 				/**
-				 * @return {String} twitter_id - Twitter id for this handle
-				 * @return {Boolean} is_following - True for "following", false for "not following"
+				 * Complete a tweet entry and then potentially undo it
+				 * @param {Boolean} retweets - True if we're dealing with retweets, false for tweets
+				 */
+				function handleTwitterTweetEntry(entry, retweet) {
+					var start_time = +new Date();
+
+					markEntryCompleted(entry, function() {
+						// Depending on mode, delete the tweet
+						if(undoEntry()) {
+							if(retweet) {
+								deleteTwitterTweet(true, entry.entry_method.config1.match(/\/([0-9]+)/)[1]);
+							} else {
+								/* We don't have an id for the tweet, so instead delete the first tweet we can find
+								that was posted after we handled the entry, but before it was marked completed.
+
+								Tweets are instantly posted to our profile, but there's a delay before they're made
+								public (a few seconds).  Increase the range by a few seconds to compensate. */
+								getTwitterTweet(start_time, +new Date() + 60 * 1000, function(tweet_id) {
+									if(tweet_id === false) {
+										gleamSolverUI.showError('Failed to find <a href="https://twitter.com/' + user_handle + '" style="color: #fff" target="_blank">Tweet</a>');
+									} else {
+										deleteTwitterTweet(false, tweet_id);
+									}
+								});
+							}
+						}
+					});
+				}
+
+				/**
+				 * @return {String|Null} twitter_id - Twitter id for this handle, null on error
+				 * @return {Boolean|Null} is_following - True for "following", false for "not following", null on error
 				 */
 				function getTwitterUserData(twitter_handle, callback) {
 					GM_xmlhttpRequest({
@@ -696,48 +741,15 @@
 				 * Unfollow a twitter user
 				 */
 				function deleteTwitterFollow(twitter_handle, twitter_id) {
-					if(twitter_id === null) {
-						gleamSolverUI.showError('Failed to unfollow Twitter user: <a href="https://twitter.com/' + twitter_handle + '" style="color: #fff" target="_blank">' + twitter_handle + '</a>');
-					} else {
-						GM_xmlhttpRequest({
-							url: "https://twitter.com/i/user/unfollow",
-							method: "POST",
-							headers: { "Origin": "https://twitter.com", "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
-							data: $.param({ authenticity_token: auth_token, user_id: twitter_id }),
-							onload: function(response) {
-								if(response.status != 200) {
-									gleamSolverUI.showError('Failed to unfollow Twitter user: <a href="https://twitter.com/' + twitter_handle + '" style="color: #fff" target="_blank">' + twitter_handle + '</a>');
-								}
-							}
-						});
-					}
-				}
-
-				/**
-				 * Complete a tweet entry and then potentially undo it
-				 * @param {Boolean} retweets - True if we're dealing with retweets, false for tweets
-				 */
-				function handleTwitterTweetEntry(entry, retweet) {
-					var start_time = +new Date();
-
-					markEntryCompleted(entry, function(success) {
-						// Depending on mode, delete the tweet
-						if(success && undoEntry()) {
-							if(retweet) {
-								deleteTwitterTweet(true, entry.entry_method.config1.match(/\/([0-9]+)/)[1]);
-							} else {
-								/* We don't have an id for the tweet, so instead delete the first tweet we can find
-								that was posted after we handled the entry, but before it was marked completed.
-
-								Tweets are instantly posted to our profile, but there's a delay before they're made
-								public (a few seconds).  Increase the range by a few seconds to compensate. */
-								getTwitterTweet(start_time, +new Date() + 60 * 1000, function(tweet_id) {
-									if(tweet_id === false) {
-										gleamSolverUI.showError('Failed to find <a href="https://twitter.com/' + user_handle + '" style="color: #fff" target="_blank">Tweet</a>');
-									} else {
-										deleteTwitterTweet(false, tweet_id);
-									}
-								});
+					GM_xmlhttpRequest({
+						url: "https://twitter.com/i/user/unfollow",
+						method: "POST",
+						headers: { "Origin": "https://twitter.com", "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },
+						data: $.param({ authenticity_token: auth_token, user_id: twitter_id }),
+						onload: function(response) {
+							if(response.status != 200) {
+								gleamSolverUI.showError('Failed to unfollow Twitter user: ' +
+									'<a href="https://twitter.com/' + twitter_handle + '" style="color: #fff" target="_blank">' + twitter_handle + '</a>');
 							}
 						}
 					});
