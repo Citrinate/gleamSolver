@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.7
+// @version 1.4.8
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -28,6 +28,7 @@
 		var gleam = null,
 			script_mode = null,
 			authentications = {},
+			num_entries_attempted = 0,
 			entry_delay_min = 500,
 			entry_delay_max = 3000,
 			valid_modes = [
@@ -71,16 +72,20 @@
 		/**
 		 * Decide what to do for each of the entries
 		 */
-		function handleEntries() {
+		function handleEntries(num_entries_previously_completed) {
 			var entries = $(".entry-method"),
 				delay = 0,
 				num_entries = 0,
-				current_entry = 0;
+				current_entry = 0,
+				num_skipped = 0,
+				mandatory_entry = null,
+				entry_delays = [];
 
 			// Jumble the order
 			entries.sort(function() { return 0.5 - Math.random(); });
 			checkAuthentications();
-			num_entries_loading = 0;
+			num_entries_attempted = 0;
+			num_entries_previously_completed = typeof num_entries_previously_completed == "undefined" ? 0 : num_entries_previously_completed;
 
 			for(var i = 0; i < entries.length; i++) {
 				var entry_element = entries[i],
@@ -91,21 +96,35 @@
 					!entry.entry_method.entering &&  // We're not already entering
 					(!gleam.campaign.details_first || gleam.contestantState.contestant.completed_details) && // We don't need to provide details before entering anything
 					(!(entry.entry_method.auth_for_details || entry.entry_method.requires_details) || gleam.contestantState.contestant.completed_details) && // We don't need to provide details before attempting this entry
-					(!entry.entry_method.requires_authentication || (typeof authentications[entry.entry_method.provider] !== "undefined" && authentications[entry.entry_method.provider].expired === false)) // The neccessary account is linked
+					(!entry.entry_method.requires_authentication || (typeof authentications[entry.entry_method.provider] !== "undefined" && authentications[entry.entry_method.provider].expired === false)) && // The neccessary account is linked
+					!gleam.showPromotionEnded() && // The giveaway hasn't ended
+					!(gleam.campaign.campaign_type == "Reward" && gleam.contestantState.contestant.claims[gleam.incentives[0].id]) && // We haven't recieved a reward yet
+					!(!gleam.demandingAuth() && gleam.demandingChallenge()) // We don't have a captcha to solve
 				) {
 					// Wait a random amount of time between each attempt, to appear more human
 					delay += Math.floor(Math.random() * (entry_delay_max - entry_delay_min)) + entry_delay_min;
 					num_entries++;
 
-					gleamSolverUI.showNotification("entry_progress", "Processing entries...");
+					if(num_entries_previously_completed === 0) {
+						gleamSolverUI.showNotification("entry_progress", "Processing entries...");
+					}
 
 					(function(current_entry, entry, delay) {
-						setTimeout(function() {
+						entry_delays.push(setTimeout(function() {
+							// Stop everything if there's a captcha to solve
+							if(!gleam.demandingAuth() && gleam.demandingChallenge()) {
+								gleamSolverUI.hideNotifications();
+								gleamSolverUI.showNotification("captcha_popup", "Please solve the captcha before continuing.");
+								gleamSolverUI.showUI();
+
+								for(var j = 0; j < entry_delays.length; j++) {
+									clearTimeout(entry_delays);
+								}
+							}
+
 							// Check to see if the giveaway ended or if we've already gotten a reward
-							if(!gleam.showPromotionEnded() && !(
-									gleam.campaign.campaign_type == "Reward" &&
-									gleam.contestantState.contestant.claims[gleam.incentives[0].id]
-								)
+							if(!gleam.showPromotionEnded() &&
+								!(gleam.campaign.campaign_type == "Reward" && gleam.contestantState.contestant.claims[gleam.incentives[0].id])
 							) {
 								try {
 									/* The following entries either leave no public record on the user's social media
@@ -211,24 +230,48 @@
 								}
 
 								// Display progress
-								gleamSolverUI.showNotification("entry_progress", current_entry + "/" + num_entries + " entries processed...");
+								gleamSolverUI.showNotification("entry_progress", (current_entry + num_entries_previously_completed) +
+									"/" + (num_entries + num_entries_previously_completed) + " entries processed...");
 
-								// Last entry
+								// Last entry has been processed
 								if(current_entry == num_entries) {
+									// Wait a little bit for things to finish up
 									setTimeout(function() {
-										gleamSolverUI.hideNotification("entry_progress");
-									}, 500);
+										if(mandatory_entry !== null && !mandatory_entry.requiresMandatoryActions() && num_entries_previously_completed === 0) {
+											// We've completed enough entries to unlock more, loop through again to complete them
+											handleEntries(num_entries);
+										} else {
+											// Wait until all the entries are finished before showing the UI again
+											var temp_interval = setInterval(function() {
+												for(var j = 0; j < gleam.entry_methods.length; j++) {
+													if(gleam.entry_methods[j].entering === true) {
+														return;
+													}
+												}
 
-									// Wait until all the entries are finished before showing the UI again
-									var temp_interval = setInterval(function() {
-										for(var j = 0; j < gleam.entry_methods.length; j++) {
-											if(gleam.entry_methods[j].entering === true) {
-												return;
-											}
+												clearInterval(temp_interval);
+												gleamSolverUI.showUI();
+												gleamSolverUI.hideNotification("entry_progress");
+
+												// Let the user know why some of the entries were skipped
+												if(num_skipped !== 0) {
+													if(num_skipped == 1) {
+														gleamSolverUI.showNotification("entry_completion_impossible", "1 entry was skipped because it was either locked, " +
+															"or because it requires additional information.");
+													} else {
+														gleamSolverUI.showNotification("entry_completion_impossible", num_skipped + " entries were skipped because they were either " +
+															"locked, or because they require additional information.");
+													}
+												}
+
+												// Let user know how many must be completed manually
+												if(num_entries - num_entries_attempted !== 0) {
+													gleamSolverUI.showNotification("entry_skipped_due_to_mode", num_entries - num_entries_attempted +
+														(num_entries - num_entries_attempted == 1 ? " entry" : " entries") + " couldn't be completed " +
+														"in the current mode and must be solved manually.");
+												}
+											}, 100);
 										}
-
-										clearInterval(temp_interval);
-										gleamSolverUI.showUI();
 									}, 500);
 								}
 							} else {
@@ -236,15 +279,30 @@
 								gleamSolverUI.hideNotification("entry_progress");
 								gleamSolverUI.showUI();
 							}
-						}, delay);
+						}, delay));
 					})(++current_entry, entry, delay);
+				} else if(!gleam.isEntered(entry.entry_method)) {
+					// The entry hasn't been completed previously
+					num_skipped++;
+
+					// Keep track of an entry that can't be unlocked until others are completed
+					if(mandatory_entry === null && entry.requiresMandatoryActions()) {
+						mandatory_entry = entry;
+					}
 				}
 			}
 
-			// There were no entries that we could even attempt to auto-complete
-			if(num_entries === 0) {
-				gleamSolverUI.showNotification("nothing_to_do", "Couldn't auto-complete any entries");
+			if(!gleam.demandingAuth() && gleam.demandingChallenge()) {
+				gleamSolverUI.hideNotifications();
+				gleamSolverUI.showNotification("captcha_popup", "Please solve the captcha before continuing.");
 				gleamSolverUI.showUI();
+			} else {
+				// There were no entries that we could even attempt to auto-complete
+				if(num_entries === 0) {
+					gleamSolverUI.showUI();
+					gleamSolverUI.showNotification("nothing_to_do", "Couldn't complete any entries.<br>If there's still " +
+						"entries that aren't completed, please solve at least one manually, and try again (reloading the page may also be necessary).");
+				}
 			}
 		}
 
@@ -265,6 +323,7 @@
 		 * Provide visual feedback to the user that something is happening
 		 */
 		function markEntryLoading(entry) {
+			num_entries_attempted++;
 			entry.entry_method.entering = true;
 		}
 
@@ -289,9 +348,9 @@
 				var temp_interval = setInterval(function() {
 					if(!gleam.canEnter(entry.entry_method) || entry.entry_method.error) {
 						clearInterval(temp_interval);
-						callback(!gleam.canEnter(entry.entry_method));
+						callback(Boolean(gleam.isEntered(entry.entry_method)));
 					}
-				}, 500);
+				}, 100);
 			}
 		}
 
@@ -342,7 +401,7 @@
 					entry.mediaChoiceContinue(entry.entry_method);
 					markEntryCompleted(entry, callback);
 				}
-			}, 500);
+			}, 100);
 		}
 
 		/**
@@ -444,7 +503,7 @@
 					entry.saveEntryDetails(entry.entry_method);
 					markEntryCompleted(entry, callback);
 				}
-			}, 500);
+			}, 100);
 		}
 
 		/**
@@ -585,7 +644,7 @@
 									clearInterval(temp_interval);
 									handleSteamGroupEntry(entry, group_name, group_id);
 								}
-							}, 500);
+							}, 100);
 						}
 					}
 				};
@@ -827,7 +886,7 @@
 									clearInterval(temp_interval);
 									handleTwitterEntry(entry);
 								}
-							}, 500);
+							}, 100);
 						}
 					}
 				};
@@ -860,9 +919,9 @@
 								script_mode = determineMode();
 								gleamSolverUI.loadUI();
 							}
-						}, 500);
+						}, 100);
 					}
-				}, 500);
+				}, 100);
 			},
 
 			/**
@@ -906,7 +965,7 @@
 			 * @return {Boolean|Number} remaining - Estimated # of remaining rewards, false if not an instant-win giveaway
 			 */
 			getRemainingQuantity: function(callback) {
-				if(gleam.campaign.campaign_type == "Reward") {
+				if(gleam.campaign.campaign_type == "Reward" && gleam.campaign.entry_count !== 0) {
 					/* Gleam doesn't report how many rewards have been distributed.  They only report how many entries have been
 					completed, and how many entries are required for a reward.  Some users may only complete a few entries, not enough
 					for them to get a reward, and so this is only an estimate, but we can say there's at least this many left. */
@@ -947,13 +1006,13 @@
 				".gs__title { margin-right: 16px; vertical-align: middle; }" +
 				".gs__select { margin: 0px 16px 0px 0px; width: 165px; }" +
 				".gs__button { height: 22px; }" +
-				".gs__notification { background: #000; border-top: 1px solid rgba(52, 152, 219, .5); box-shadow: 0px 2px 10px rgba(0, 0, 0, .5); box-sizing: border-box; color: #3498db; padding: 12px; width: 100%; }" +
-				".gs__error { background: #e74c3c; border-top: 1px solid rgba(255, 255, 255, .5); box-shadow: 0px 2px 10px rgba(231, 76, 60, .5); box-sizing: border-box; color: #fff; padding: 12px; width: 100%; }" +
+				".gs__notification { background: #000; border-top: 1px solid rgba(52, 152, 219, .5); box-shadow: 0px 2px 10px rgba(0, 0, 0, .5); box-sizing: border-box; color: #3498db; line-height: 22px; padding: 12px; width: 100%; }" +
+				".gs__error { background: #e74c3c; border-top: 1px solid rgba(255, 255, 255, .5); box-shadow: 0px 2px 10px rgba(231, 76, 60, .5); box-sizing: border-box; color: #fff; line-height: 22px; padding: 12px; width: 100%; }" +
 				".gs__quantity { font-style: italic; margin: 12px 0px 0px 0px; }" +
 				".gs__win_chance { display: inline-block; font-size: 14px; line-height: 14px; position: relative; top: -4px; }"
 			);
 
-		/**`
+		/**
 		 * Push the page down to make room for notifications
 		 */
 		function updateTopMargin() {
@@ -967,7 +1026,7 @@
 			var num_rewards = gleamSolver.getQuantity(),
 				num_remaining = gleamSolver.getRemainingQuantity(),
 				msg = "(" + num_rewards.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " " + (num_rewards == 1 ? "reward" : "rewards") + " being given away" +
-					(num_remaining === false ? "" : ";<br>~" + num_remaining.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " remaining") + ")";
+					(num_remaining === false ? "" : ";<br>~" + num_remaining.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " rewards remaining") + ")";
 
 			$($(".incentive-description h3").get(0)).append($("<div>", { html: msg, class: "gs__quantity" }));
 		}
@@ -1000,7 +1059,7 @@
 							// Prevent double click
 							disable_ui_click = true;
 
-							self.hideNotification("nothing_to_do");
+							self.hideNotifications();
 							$(this).parent().slideUp(400, function() {
 								updateTopMargin();
 								gleamSolver.completeEntries();
@@ -1035,7 +1094,7 @@
 				// Don't print the same error multiple times
 				if(active_errors.indexOf(msg) == -1) {
 					active_errors.push(msg);
-					gleam_solver_container.append($("<div>", { class: "gs__error" }).html("Gleam.solver Error: " + msg));
+					gleam_solver_container.append($("<div>", { class: "gs__error" }).html("<strong>Gleam.solver Error</strong>: " + msg));
 					updateTopMargin();
 				}
 			},
@@ -1051,7 +1110,7 @@
 				}
 
 				// Update notification
-				active_notifications[notification_id].html("Gleam.solver Notification: " + msg);
+				active_notifications[notification_id].html("<strong>Gleam.solver Notification</strong>: " + msg);
 				updateTopMargin();
 			},
 
@@ -1067,6 +1126,15 @@
 						old_notification.remove();
 						updateTopMargin();
 					});
+				}
+			},
+
+			/**
+			 * Remove all notifications
+			 */
+			hideNotifications: function() {
+				for(var key in active_notifications) {
+					this.hideNotification(key);
 				}
 			}
 		};
