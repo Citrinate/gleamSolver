@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.10
+// @version 1.4.11
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -136,7 +136,7 @@
 					!entry.entry_method.entering &&  // We're not already entering
 					hasEnoughDetails(entry.entry_method) && // We don't need to provide any details
 					hasAuthentications(entry.entry_method) && // The neccessary account is linked
-					!gleam.showPromotionEnded() && // The giveaway hasn't ended
+					gleam.isRunning() && // The giveaway is still going on
 					!(gleam.campaign.campaign_type == "Reward" && !!gleam.contestantState.contestant.claims[gleam.incentives[0].id]) && // We haven't recieved a reward
 					!(!gleam.demandingAuth() && gleam.demandingChallenge()) // We don't have a captcha to solve
 				) {
@@ -151,7 +151,7 @@
 					(function(current_entry, entry, delay) {
 						entry_delays.push(setTimeout(function() {
 							// Check to see if the giveaway ended or if we've already gotten a reward
-							if(!gleam.showPromotionEnded() &&
+							if(gleam.isRunning() &&
 								!(gleam.campaign.campaign_type == "Reward" && gleam.contestantState.contestant.claims[gleam.incentives[0].id])
 							) {
 								try {
@@ -317,12 +317,25 @@
 				gleamSolverUI.hideNotifications();
 				gleamSolverUI.showNotification("captcha_popup", "Please solve the captcha before continuing.");
 				gleamSolverUI.showUI();
+			} else if(gleam.campaign.starts_at > Math.floor(+new Date()/1000)) {
+				// The giveaway hasn't started yet, schedule the script to run when it does
+				var temp_interval = setInterval(function() {
+					var current_time = Math.floor(+new Date()/1000),
+						seconds_remaining = gleam.campaign.starts_at - current_time;
+
+					if(!gleam.isRunning()) {
+						gleamSolverUI.showNotification("countdown", "The promotion hasn't started yet.  The script will continue in " + seconds_remaining + "...");
+					} else {
+						clearInterval(temp_interval);
+						gleamSolverUI.hideNotification("countdown");
+						handleEntries();
+					}
+				}, 1000);
 			} else {
 				// There were no entries that we could even attempt to auto-complete
 				if(num_entries === 0) {
-					gleamSolverUI.showUI();
-
-					if(num_skipped !== 0) {
+					if(num_skipped !== 0 && gleam.isRunning()) {
+						gleamSolverUI.showUI();
 						gleamSolverUI.showNotification("nothing_to_do", "Couldn't complete any entries.  Please solve at least one manually, and then try again (reloading the page may also be necessary).");
 					} else {
 						gleamSolverUI.showNotification("nothing_to_do", "There's no entries left to complete.");
