@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.9
+// @version 1.4.10
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -69,31 +69,46 @@
 		}
 
 		/**
-		 * Check to see if we've got an account linked for an entry
-		 * @return {Boolean}
+		 * Check to see if we've got a necessary account linked for an entry
+		 * @return {Boolean} has_authentications - True for we have the authentications, false for otherwise
 		 */
 		function hasAuthentications(entry_method) {
-			return (
-				!entry_method.requires_authentication ||
-				(!!authentications[entry_method.provider] && !authentications[entry_method.provider].expired)
-			);
+			if(entry_method.requires_authentication) {
+				// The entry requires an account linked
+				if(authentications[entry_method.provider] && !authentications[entry_method.provider].expired) {
+					// And that account is linked
+					return true;
+				}
+			} else {
+				return true;
+			}
+
+			return false;
 		}
 
 		/**
 		 * Check to see if we've provided enough details for an entry
-		 * @return {Boolean}
+		 * @return {Boolean} has_enough_details - True for has provided enough details, false for otherwise
 		 */
 		function hasEnoughDetails(entry_method) {
-			return !!(
-				gleam.campaign.campaign_type === "Competition" ||
+			if(gleam.campaign.campaign_type === "Competition" ||
 				entry_method.provider === "email" ||
 				gleam.campaign.require_contact_info
-					? gleam.contestantState.contestant.id &&
-						gleam.contestantState.contestant.email &&
-						gleam.contestantState.contestant.name &&
-						(!gleam.campaign.additional_contestant_details || !!gleam.contestantState.contestant.completed_details)
-					: true
-			);
+			) {
+				// Information is required
+				if(gleam.contestantState.contestant.id &&
+					gleam.contestantState.contestant.email &&
+					gleam.contestantState.contestant.name &&
+					(!gleam.campaign.additional_contestant_details || !!gleam.contestantState.contestant.completed_details)
+				) {
+					// And we've already provided it
+					return true;
+				}
+			} else {
+				return true;
+			}
+
+			return false;
 		}
 
 		/**
@@ -108,8 +123,7 @@
 				mandatory_entry = null,
 				entry_delays = [];
 
-			// Jumble the order
-			entries.sort(function() { return 0.5 - Math.random(); });
+			entries.sort(function() { return 0.5 - Math.random(); }); // Jumble the order
 			checkAuthentications();
 			num_entries_previously_completed = typeof num_entries_previously_completed == "undefined" ? 0 : num_entries_previously_completed;
 
@@ -154,6 +168,9 @@
 											break;
 
 										case "facebook_enter":
+											handleSpecialClickEntry(entry);
+											break;
+
 										case "instagram_enter":
 										case "steam_enter":
 										case "twitchtv_enter":
@@ -293,6 +310,10 @@
 			}
 
 			if(!gleam.demandingAuth() && gleam.demandingChallenge()) {
+				for(i = 0; i < entry_delays.length; i++) {
+					clearTimeout(entry_delays[i]);
+				}
+
 				gleamSolverUI.hideNotifications();
 				gleamSolverUI.showNotification("captcha_popup", "Please solve the captcha before continuing.");
 				gleamSolverUI.showUI();
@@ -332,8 +353,7 @@
 			if(callback === false) return;
 
 			markEntryNotLoading(entry);
-			entry.enterLinkClick(entry.entry_method); // Opens up the entry details
-			entry.saveEntryDetails(entry.entry_method); // Needed in some cases
+			entry.enterLinkClick(entry.entry_method); // Complete the entry
 			entry.verifyEntryMethod(); // Shows a little pop-up letting the user know the entry is completed
 
 			// Callback after gleam marks the entry as completed
@@ -361,6 +381,15 @@
 		function handleClickEntry(entry, callback) {
 			markEntryLoading(entry);
 			entry.triggerVisit(entry.entry_method.id);
+			markEntryCompleted(entry, callback);
+		}
+
+		/**
+		 * Looks like a click entry, but calls saveEntryDetails instead of triggerVisit
+		 */
+		function handleSpecialClickEntry(entry, callback) {
+			markEntryLoading(entry);
+			entry.saveEntryDetails(entry.entry_method);
 			markEntryCompleted(entry, callback);
 		}
 
@@ -449,8 +478,10 @@
 				entry.imageChoiceContinue(entry.entry_method);
 			} else if(entry.entry_method.template == "choose_option" || entry.entry_method.template == "visit") {
 				entry.entryState.formData[entry.entry_method.id] = rand_choice;
+				entry.saveEntryDetails(entry.entry_method);
 			} else if(entry.entry_method.template == "multiple_choice") {
 				entry.entryState.formData[entry.entry_method.id][rand_choice] = true;
+				entry.saveEntryDetails(entry.entry_method);
 			}
 
 			markEntryCompleted(entry, callback);
@@ -498,6 +529,7 @@
 			var temp_interval = setInterval(function() {
 				if(entry.verifyStatus(entry.entry_method) == "good") {
 					clearInterval(temp_interval);
+					entry.saveEntryDetails(entry.entry_method);
 					markEntryCompleted(entry, callback);
 				}
 			}, 100);
