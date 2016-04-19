@@ -17,7 +17,7 @@ If the script doesn't auto-complete a certain entry type in this mode, then it's
 
 In the case of raffles, you may be disqualified for undoing any of the social media actions that the raffle asks of you. To prevent this, the script will only auto-complete the entries, it will not undo any of them. If the script doesn't auto-complete a certain entry type in this mode, then it's because it can't be auto-completed without the risk of disqualification, and so you'll have to complete it manually.
 
-####Instant-win Full mode
+####Instant-win Complete mode
 
 This is an alternative to Instant-win mode that isn't used by default, but can be selected using the script's UI.  This mode is something of a mix between the two other available modes.  It will auto-complete everything it has the ability to auto-complete, and then it will undo everything is has the ability to auto-undo.
 

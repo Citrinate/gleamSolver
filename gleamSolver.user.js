@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.11
+// @version 1.4.12
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -33,7 +33,7 @@
 			valid_modes = [
 				"undo_all", // Instant-win mode: There should be no public record of any social media activity on the user's accounts.
 				"undo_none", // Raffle mode: All public record of social media activity should remain on the user's accounts.
-				"undo_some" // Instant-win Full mode: Mark all entries and remove all possible public record of social media activity on the user's accounts.
+				"undo_some" // Instant-win Plus mode: Mark all entries and remove all possible public record of social media activity on the user's accounts.
 			];
 
 		/**
@@ -331,15 +331,18 @@
 						handleEntries();
 					}
 				}, 1000);
-			} else {
+			} else if(num_entries === 0) {
 				// There were no entries that we could even attempt to auto-complete
-				if(num_entries === 0) {
-					if(num_skipped !== 0 && gleam.isRunning()) {
-						gleamSolverUI.showUI();
-						gleamSolverUI.showNotification("nothing_to_do", "Couldn't complete any entries.  Please solve at least one manually, and then try again (reloading the page may also be necessary).");
-					} else {
-						gleamSolverUI.showNotification("nothing_to_do", "There's no entries left to complete.");
-					}
+				gleamSolverUI.hideNotification("entry_progress");
+
+				if(num_skipped !== 0 &&
+					gleam.isRunning() &&
+					!(gleam.campaign.campaign_type == "Reward" && gleam.contestantState.contestant.claims[gleam.incentives[0].id])
+				) {
+					gleamSolverUI.showUI();
+					gleamSolverUI.showNotification("nothing_to_do", "Couldn't complete any entries.  Please solve at least one manually, and then try again (reloading the page may also be necessary).");
+				} else {
+					gleamSolverUI.showNotification("nothing_to_do", "There's no entries left to complete.");
 				}
 			}
 		}
@@ -362,7 +365,7 @@
 		 * Finish up an entry
 		 * @return {Boolean} success - True if the entry was completed, false if error
 		 */
-		function markEntryCompleted(entry, callback) {
+		function markEntryCompleted(entry, callback, max_wait) {
 			if(callback === false) return;
 
 			markEntryNotLoading(entry);
@@ -371,10 +374,12 @@
 
 			// Callback after gleam marks the entry as completed
 			if(typeof(callback) == "function") {
+				var max_time = typeof max_wait == "undefined" ? false : +new Date() + max_wait; // Max amount of time we should wait before callback
+
 				var temp_interval = setInterval(function() {
-					if(!gleam.canEnter(entry.entry_method) || entry.entry_method.error) {
+					if(!gleam.canEnter(entry.entry_method) || entry.entry_method.error || (max_time && +new Date() > max_time)) {
 						clearInterval(temp_interval);
-						callback(Boolean(gleam.isEntered(entry.entry_method)));
+						callback(!!gleam.isEntered(entry.entry_method));
 					}
 				}, 100);
 			}
@@ -619,15 +624,14 @@
 							markEntryCompleted(entry);
 						} else {
 							joinSteamGroup(group_name, group_id, function() {
-								markEntryCompleted(entry, function() {
-									// Never leave a group that the user was already a member of
-									if(active_groups.indexOf(group_name) == -1) {
-										// Depending on mode, leave the group
-										if(undoEntry()) {
+								setTimeout(function() {
+									markEntryCompleted(entry, function() {
+										// Depending on mode, leave the group, but never leave a group that the user was already a member of
+										if(undoEntry() && active_groups.indexOf(group_name) == -1) {
 											leaveSteamGroup(group_name, group_id);
 										}
-									}
-								});
+									}, 10000);
+								}, 1000);
 							});
 						}
 					}
@@ -1051,9 +1055,9 @@
 
 			GM_addStyle(
 				"html { overflow-y: scroll !important; }" +
-				".gs__main_container { font-size: 16.5px; left: 0px; position: fixed; top: 0px; width: 100%; z-index: 9999999999; }" +
+				".gs__main_container { font-size: 16.5px; left: 0px; position: fixed; text-align: center; top: 0px; width: 100%; z-index: 9999999999; }" +
 				".gs__title { margin-right: 16px; vertical-align: middle; }" +
-				".gs__select { margin: 0px 16px 0px 0px; width: 165px; }" +
+				".gs__select { margin: 0px 16px 0px 0px; padding: 4px 2px; width: 169px; }" +
 				".gs__button { height: 22px; }" +
 				".gs__notification { background: #000; border-top: 1px solid rgba(52, 152, 219, .5); box-shadow: 0px 2px 10px rgba(0, 0, 0, .5); box-sizing: border-box; color: #3498db; line-height: 21px; padding: 12px; width: 100%; }" +
 				".gs__error { background: #e74c3c; border-top: 1px solid rgba(255, 255, 255, .5); box-shadow: 0px 2px 10px rgba(231, 76, 60, .5); box-sizing: border-box; color: #fff; line-height: 21px; padding: 12px; width: 100%; }" +
@@ -1108,7 +1112,7 @@
 					$("<select>", { class: "gs__select" }).append(
 						$("<option>", { text: "Instant-win Mode", value: "undo_all", selected: (gleamSolver.getMode() == "undo_all") })).append(
 						$("<option>", { text: "Raffle Mode", value: "undo_none", selected: (gleamSolver.getMode() == "undo_none") })).append(
-						$("<option>", { text: "Instant-win Full Mode", value: "undo_some", selected: (gleamSolver.getMode() == "undo_some") })).change(function() {
+						$("<option>", { text: "Instant-win Plus Mode", value: "undo_some", selected: (gleamSolver.getMode() == "undo_some") })).change(function() {
 							gleamSolver.setMode($(this).val());
 						})).append(
 					$("<a>", { text: "Auto-complete", class: "gs__button btn btn-embossed btn-info" }).click(function() {
@@ -1132,6 +1136,9 @@
 				setInterval(updateWinChance, 500);
 				showQuantity();
 				updateTopMargin();
+
+				// Show exact end date when hovering over any times
+				$("[data-ends]").each(function() { $(this).attr("title", new Date(parseInt($(this).attr("data-ends")) * 1000)); });
 			},
 
 			/**
