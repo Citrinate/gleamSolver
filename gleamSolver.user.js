@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.12
+// @version 1.4.13
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -605,13 +605,13 @@
 					if(steam_id === null || session_id === null || process_url === null) {
 						// We're not logged in, try to mark it anyway incase we're already a member of the group.
 						markEntryCompleted(entry);
-						gleamSolverUI.showError('You must be logged into <a href="https://steamcommunity.com" style="color: #fff" target="_blank">steamcommunity.com</a>. ' +
+						gleamSolverUI.showError('You must be logged into <a href="https://steamcommunity.com" target="_blank">steamcommunity.com</a>. ' +
 							'Please login to Steam Community and reload the page.');
 					} else if(authentications.steam.uid != steam_id) {
 						// We're not logged into the correct account, try to mark it anyway incase we're already a member of the group.
 						markEntryNotLoading(entry);
 						gleamSolverUI.showError('You must be logged into the Steam account that\'s linked to Gleam.io ' +
-							'(<a href="https://steamcommunity.com/profiles/' + authentications.steam.uid + '/" style="color: #fff" target="_blank">' +
+							'(<a href="https://steamcommunity.com/profiles/' + authentications.steam.uid + '/" target="_blank">' +
 							'steamcommunity.com/profiles/' + authentications.steam.uid + '/</a>). Please login to the linked account and then reload the page.');
 					} else if(active_groups === null) {
 						// Couldn't get user's group data, try to mark it anyway incase we're already a member of the group.
@@ -625,7 +625,16 @@
 						} else {
 							joinSteamGroup(group_name, group_id, function() {
 								setTimeout(function() {
-									markEntryCompleted(entry, function() {
+									markEntryCompleted(entry, function(success) {
+										if(!success) {
+											// Steam Community is at least partially offline, there's nothing we can do
+											gleamSolverUI.showError("The Steam Community is down. " +
+												"Please handle the entries manually.<br>" +
+												"If you're having trouble getting groups to appear on " +
+												'<a href="https://steamcommunity.com/profiles/my/groups/">your groups list</a>, ' +
+												'joining a <a href="https://steamcommunity.com/search/#filter=groups">new group</a> may force the list to update.');
+										}
+
 										// Depending on mode, leave the group, but never leave a group that the user was already a member of
 										if(undoEntry() && active_groups.indexOf(group_name) == -1) {
 											leaveSteamGroup(group_name, group_id);
@@ -747,13 +756,13 @@
 						if(undoEntry() && (auth_token === null || user_handle === null || user_id === null)) {
 							// We're not logged in
 							markEntryNotLoading(entry);
-							gleamSolverUI.showError('You must be logged into <a href="https://twitter.com" style="color: #fff" target="_blank">twitter.com</a>. ' +
+							gleamSolverUI.showError('You must be logged into <a href="https://twitter.com" target="_blank">twitter.com</a>. ' +
 								'Please login to Twitter and then reload the page.');
 						} else if(undoEntry() && authentications.twitter.uid != user_id) {
 							// We're not logged into the correct account
 							markEntryNotLoading(entry);
 							gleamSolverUI.showError('You must be logged into the Twitter account that\'s linked to Gleam.io ' +
-								'(<a href="https://twitter.com/profiles/' + authentications.twitter.reference + '/" style="color: #fff" target="_blank">' +
+								'(<a href="https://twitter.com/profiles/' + authentications.twitter.reference + '/" target="_blank">' +
 								'twitter.com/' + authentications.twitter.reference + '</a>). Please login to the linked account and then reload the page.');
 						} else {
 							switch(entry.entry_method.entry_type) {
@@ -782,7 +791,7 @@
 								// Depending on mode and if we were already following, unfollow the user
 								if(twitter_id === null) {
 									gleamSolverUI.showError('Failed to unfollow Twitter user: ' +
-										'<a href="https://twitter.com/' + twitter_handle + '" style="color: #fff" target="_blank">' + twitter_handle + '</a>');
+										'<a href="https://twitter.com/' + twitter_handle + '" target="_blank">' + twitter_handle + '</a>');
 								} else if(!already_following) {
 									deleteTwitterFollow(twitter_handle, twitter_id);
 								}
@@ -811,7 +820,7 @@
 								public (a few seconds).  Increase the range by a few seconds to compensate. */
 								getTwitterTweet(start_time, +new Date() + 60 * 1000, function(tweet_id) {
 									if(tweet_id === false) {
-										gleamSolverUI.showError('Failed to find <a href="https://twitter.com/' + user_handle + '" style="color: #fff" target="_blank">Tweet</a>');
+										gleamSolverUI.showError('Failed to find <a href="https://twitter.com/' + user_handle + '" target="_blank">Tweet</a>');
 									} else {
 										deleteTwitterTweet(false, tweet_id);
 									}
@@ -854,7 +863,7 @@
 						onload: function(response) {
 							if(response.status != 200) {
 								gleamSolverUI.showError('Failed to unfollow Twitter user: ' +
-									'<a href="https://twitter.com/' + twitter_handle + '" style="color: #fff" target="_blank">' + twitter_handle + '</a>');
+									'<a href="https://twitter.com/' + twitter_handle + '" target="_blank">' + twitter_handle + '</a>');
 							}
 						}
 					});
@@ -910,7 +919,7 @@
 						data: $.param({ _method: "DELETE", authenticity_token: auth_token, id: tweet_id }),
 						onload: function(response) {
 							if(response.status != 200) {
-								gleamSolverUI.showError('Failed to delete <a href="https://twitter.com/' + user_handle + '" style="color: #fff" target="_blank">' + (retweet ? "Retweet" : "Tweet") + '</a>');
+								gleamSolverUI.showError('Failed to delete <a href="https://twitter.com/' + user_handle + '" target="_blank">' + (retweet ? "Retweet" : "Tweet") + '</a>');
 							}
 						}
 					});
@@ -1057,10 +1066,11 @@
 				"html { overflow-y: scroll !important; }" +
 				".gs__main_container { font-size: 16.5px; left: 0px; position: fixed; text-align: center; top: 0px; width: 100%; z-index: 9999999999; }" +
 				".gs__title { margin-right: 16px; vertical-align: middle; }" +
-				".gs__select { margin: 0px 16px 0px 0px; padding: 4px 2px; width: 169px; }" +
+				".gs__select { margin: 0px 16px 0px 0px; padding: 4px 2px; width: 150px; }" +
 				".gs__button { height: 22px; }" +
 				".gs__notification { background: #000; border-top: 1px solid rgba(52, 152, 219, .5); box-shadow: 0px 2px 10px rgba(0, 0, 0, .5); box-sizing: border-box; color: #3498db; line-height: 21px; padding: 12px; width: 100%; }" +
 				".gs__error { background: #e74c3c; border-top: 1px solid rgba(255, 255, 255, .5); box-shadow: 0px 2px 10px rgba(231, 76, 60, .5); box-sizing: border-box; color: #fff; line-height: 21px; padding: 12px; width: 100%; }" +
+				".gs__error a { color: #fff; }" +
 				".gs__message { font-size: 14px; }" +
 				".gs__quantity { font-style: italic; margin: 12px 0px 0px 0px; }" +
 				".gs__win_chance { display: inline-block; font-size: 14px; line-height: 14px; position: relative; top: -4px; }"
