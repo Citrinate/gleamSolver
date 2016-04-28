@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.13
+// @version 1.4.14
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -40,10 +40,12 @@
 		 * Choose a default mode based on the giveaway type
 		 */
 		function determineMode() {
-			switch(gleam.campaign.campaign_type) {
-				case "Reward": return GM_getValue("default_instant_mode", "undo_all"); // Instant-win
-				case "Competition": return GM_getValue("default_raffle_mode", "undo_all"); // Raffle
-				default: return "undo_all"; // Safest mode to fall back on
+			if(gleam.isReward()) {
+				// Instant-win mode
+				GM_getValue("default_instant_mode", "undo_all");
+			} else {
+				// Raffle mode
+				GM_getValue("default_raffle_mode", "undo_all");
 			}
 		}
 
@@ -91,7 +93,7 @@
 		 * @return {Boolean} has_enough_details - True for has provided enough details, false for otherwise
 		 */
 		function hasEnoughDetails(entry_method) {
-			if(gleam.campaign.campaign_type === "Competition" ||
+			if(!gleam.isReward() ||
 				entry_method.provider === "email" ||
 				gleam.campaign.require_contact_info
 			) {
@@ -137,7 +139,7 @@
 					hasEnoughDetails(entry.entry_method) && // We don't need to provide any details
 					hasAuthentications(entry.entry_method) && // The neccessary account is linked
 					gleam.isRunning() && // The giveaway is still going on
-					!(gleam.campaign.campaign_type == "Reward" && !!gleam.contestantState.contestant.claims[gleam.incentives[0].id]) && // We haven't recieved a reward
+					!(gleam.isReward() && !!gleam.contestantState.contestant.claims[gleam.incentives[0].id]) && // We haven't recieved a reward
 					!(!gleam.demandingAuth() && gleam.demandingChallenge()) // We don't have a captcha to solve
 				) {
 					// Wait a random amount of time between each attempt, to appear more human
@@ -152,7 +154,7 @@
 						entry_delays.push(setTimeout(function() {
 							// Check to see if the giveaway ended or if we've already gotten a reward
 							if(gleam.isRunning() &&
-								!(gleam.campaign.campaign_type == "Reward" && gleam.contestantState.contestant.claims[gleam.incentives[0].id])
+								!(gleam.isReward() && gleam.contestantState.contestant.claims[gleam.incentives[0].id])
 							) {
 								try {
 									/* The following entries either leave no public record on the user's social media
@@ -337,7 +339,7 @@
 
 				if(num_skipped !== 0 &&
 					gleam.isRunning() &&
-					!(gleam.campaign.campaign_type == "Reward" && gleam.contestantState.contestant.claims[gleam.incentives[0].id])
+					!(gleam.isReward() && gleam.contestantState.contestant.claims[gleam.incentives[0].id])
 				) {
 					gleamSolverUI.showUI();
 					gleamSolverUI.showNotification("nothing_to_do", "Couldn't complete any entries.  Please solve at least one manually, and then try again (reloading the page may also be necessary).");
@@ -628,10 +630,10 @@
 									markEntryCompleted(entry, function(success) {
 										if(!success) {
 											// Steam Community is at least partially offline, there's nothing we can do
-											gleamSolverUI.showError("The Steam Community is down. " +
-												"Please handle the entries manually.<br>" +
+											gleamSolverUI.showError("The Steam Community may be down. " +
+												"Please handle any remaining Steam entries manually.<br>" +
 												"If you're having trouble getting groups to appear on " +
-												'<a href="https://steamcommunity.com/profiles/my/groups/">your groups list</a>, ' +
+												'<a href="https://steamcommunity.com/my/groups/">your groups list</a>, ' +
 												'joining a <a href="https://steamcommunity.com/search/#filter=groups">new group</a> may force the list to update.');
 										}
 
@@ -1001,10 +1003,10 @@
 					script_mode = mode;
 
 					// Save this mode as the default for this type of giveaway
-					switch(gleam.campaign.campaign_type) {
-						case "Reward": GM_setValue("default_instant_mode", mode); break;
-						case "Competition": GM_setValue("default_raffle_mode", mode); break;
-						default: break;
+					if(gleam.isReward()) {
+						GM_setValue("default_instant_mode", mode);
+					} else {
+						GM_setValue("default_raffle_mode", mode);
 					}
 				}
 			},
@@ -1020,7 +1022,7 @@
 			 * @return {Boolean|Number} remaining - Estimated # of remaining rewards, false if not an instant-win giveaway
 			 */
 			getRemainingQuantity: function(callback) {
-				if(gleam.campaign.campaign_type == "Reward" && !!gleam.campaign.entry_count) {
+				if(gleam.isReward() && !!gleam.campaign.entry_count) {
 					/* Gleam doesn't report how many rewards have been distributed.  They only report how many entries have been
 					completed, and how many entries are required for a reward.  Some users may only complete a few entries, not enough
 					for them to get a reward, and so this is only an estimate, but we can say there's at least this many left. */
