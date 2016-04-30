@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.14
+// @version 1.4.15
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -152,6 +152,8 @@
 
 					(function(current_entry, entry, delay) {
 						entry_delays.push(setTimeout(function() {
+							GM_setValue("script_in_progress", +new Date());
+
 							// Check to see if the giveaway ended or if we've already gotten a reward
 							if(gleam.isRunning() &&
 								!(gleam.isReward() && gleam.contestantState.contestant.claims[gleam.incentives[0].id])
@@ -285,6 +287,7 @@
 										} else {
 											gleamSolverUI.showUI();
 											gleamSolverUI.hideNotification("entry_progress");
+											GM_setValue("script_in_progress", false);
 
 											// Let the user know that some of the entries were intentionally skipped
 											if(num_skipped !== 0) {
@@ -985,7 +988,26 @@
 			 *
 			 */
 			completeEntries: function() {
-				handleEntries();
+				var in_progress = GM_getValue("script_in_progress", false);
+
+				if(in_progress !== false && +new Date() - in_progress <= entry_delay_max) {
+					// Prevent the script from running on two pages at the same time
+					gleamSolverUI.showNotification("in_progress", "Gleam.solver is currently running on another page.  Please wait.");
+
+					var temp_interval = setInterval(function() {
+						in_progress = GM_getValue("script_in_progress", false);
+
+						if(in_progress === false || +new Date() - in_progress > entry_delay_max) {
+							clearInterval(temp_interval);
+							gleamSolverUI.hideNotification("in_progress");
+							GM_setValue("script_in_progress", +new Date());
+							handleEntries();
+						}
+					}, 500);
+				} else {
+					GM_setValue("script_in_progress", +new Date());
+					handleEntries();
+				}
 			},
 
 			/**
