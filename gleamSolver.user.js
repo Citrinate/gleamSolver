@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.16
+// @version 1.4.17
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -42,10 +42,10 @@
 		function determineMode() {
 			if(gleam.isReward()) {
 				// Instant-win mode
-				GM_getValue("default_instant_mode", "undo_all");
+				return GM_getValue("default_instant_mode", "undo_all");
 			} else {
 				// Raffle mode
-				GM_getValue("default_raffle_mode", "undo_all");
+				return GM_getValue("default_raffle_mode", "undo_none");
 			}
 		}
 
