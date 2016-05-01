@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.15
+// @version 1.4.16
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -283,6 +283,7 @@
 
 										if(mandatory_entry !== null && !mandatory_entry.requiresMandatoryActions() && num_entries_previously_completed === 0) {
 											// We've completed enough entries to unlock more, loop through again to complete them
+											GM_setValue("script_in_progress", +new Date());
 											handleEntries(num_entries);
 										} else {
 											gleamSolverUI.showUI();
