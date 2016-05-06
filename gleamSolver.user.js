@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.17
+// @version 1.4.18
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -156,7 +156,8 @@
 
 							// Check to see if the giveaway ended or if we've already gotten a reward
 							if(gleam.isRunning() &&
-								!(gleam.isReward() && gleam.contestantState.contestant.claims[gleam.incentives[0].id])
+								!(gleam.isReward() && gleam.contestantState.contestant.claims[gleam.incentives[0].id]) &&
+								!(!gleam.demandingAuth() && gleam.demandingChallenge())
 							) {
 								try {
 									/* The following entries either leave no public record on the user's social media
@@ -629,24 +630,34 @@
 							// User was already a member
 							markEntryCompleted(entry);
 						} else {
-							joinSteamGroup(group_name, group_id, function() {
-								setTimeout(function() {
-									markEntryCompleted(entry, function(success) {
-										if(!success) {
-											// Steam Community is at least partially offline, there's nothing we can do
-											gleamSolverUI.showError("The Steam Community may be down. " +
-												"Please handle any remaining Steam entries manually.<br>" +
-												"If you're having trouble getting groups to appear on " +
-												'<a href="https://steamcommunity.com/my/groups/">your groups list</a>, ' +
-												'joining a <a href="https://steamcommunity.com/search/#filter=groups">new group</a> may force the list to update.');
-										}
+							joinSteamGroup(group_name, group_id, function(success) {
+								var steam_community_down_error = "The Steam Community may be down. " +
+									"Please handle any remaining Steam entries manually.<br>" +
+									"If you're having trouble getting groups to appear on " +
+									'<a href="https://steamcommunity.com/my/groups/">your groups list</a>, ' +
+									'joining a <a href="https://steamcommunity.com/search/#filter=groups">new group</a> may force the list to update.';
 
-										// Depending on mode, leave the group, but never leave a group that the user was already a member of
-										if(undoEntry() && active_groups.indexOf(group_name) == -1) {
-											leaveSteamGroup(group_name, group_id);
-										}
-									}, 10000);
-								}, 1000);
+								if(!success) {
+									// Steam Community is having issues
+									gleamSolverUI.showError(steam_community_down_error);
+									gleamSolverUI.showError('Failed to join group: <a href="https://steamcommunity.com/groups/' + group_name + '">' + group_name + '</a>');
+									markEntryCompleted(entry);
+								} else {
+									setTimeout(function() {
+										markEntryCompleted(entry, function() {
+											// Depending on mode, leave the group, but never leave a group that the user was already a member of
+											if(undoEntry() && active_groups.indexOf(group_name) == -1) {
+												leaveSteamGroup(group_name, group_id, function(success) {
+													if(!success) {
+														// Steam Community is having issues
+														gleamSolverUI.showError(steam_community_down_error);
+														gleamSolverUI.showError('Failed to leave group: <a href="https://steamcommunity.com/groups/' + group_name + '">' + group_name + '</a>');
+													}
+												});
+											}
+										}, 10000);
+									}, 1000);
+								}
 							});
 						}
 					}
@@ -662,9 +673,20 @@
 						headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
 						data: $.param({ action: "join", sessionID: session_id }),
 						onload: function(response) {
-							if(typeof callback == "function") {
-								callback();
-							}
+							GM_xmlhttpRequest({
+								url: "https://steamcommunity.com/my/groups",
+								method: "GET",
+								onload: function(response) {
+									if(typeof callback == "function") {
+										if($(response.responseText.toLowerCase()).find("a[href='https://steamcommunity.com/groups/" + group_name + "']").length === 0) {
+											// Failed to join the group, Steam Community is probably down
+											callback(false);
+										} else {
+											callback(true);
+										}
+									}
+								}
+							});
 						}
 					});
 				}
@@ -680,7 +702,12 @@
 						data: $.param({ sessionID: session_id, action: "leaveGroup", groupId: group_id }),
 						onload: function(response) {
 							if(typeof callback == "function") {
-								callback();
+								if($(response.responseText.toLowerCase()).find("a[href='https://steamcommunity.com/groups/" + group_name + "']").length !== 0) {
+									// Failed to leave the group, Steam Community is probably down
+									callback(false);
+								} else {
+									callback(true);
+								}
 							}
 						}
 					});
