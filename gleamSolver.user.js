@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.19
+// @version 1.4.20
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -377,7 +377,7 @@
 
 			markEntryNotLoading(entry);
 			entry.enterLinkClick(entry.entry_method); // Complete the entry
-			entry.verifyEntryMethod(); // Shows a little pop-up letting the user know the entry is completed
+			entry.resumeEntry(entry.entry_method); // Shows a little pop-up letting the user know the entry is completed
 
 			// Callback after gleam marks the entry as completed
 			if(typeof(callback) == "function") {
@@ -611,7 +611,7 @@
 				function handleSteamGroupEntry(entry, group_name, group_id) {
 					if(steam_id === null || session_id === null || process_url === null) {
 						// We're not logged in, try to mark it anyway incase we're already a member of the group.
-						markEntryCompleted(entry);
+						handleSpecialClickEntry(entry);
 						gleamSolverUI.showError('You must be logged into <a href="https://steamcommunity.com" target="_blank">steamcommunity.com</a>. ' +
 							'Please login to Steam Community and reload the page.');
 					} else if(authentications.steam.uid != steam_id) {
@@ -622,13 +622,13 @@
 							'steamcommunity.com/profiles/' + authentications.steam.uid + '/</a>). Please login to the linked account and then reload the page.');
 					} else if(active_groups === null) {
 						// Couldn't get user's group data, try to mark it anyway incase we're already a member of the group.
-						markEntryCompleted(entry);
+						handleSpecialClickEntry(entry);
 						gleamSolverUI.showError("Unable to determine what Steam groups you're a member of.  " +
 							"Please make sure you're a member of at least 1 Steam group, and then reload the page.");
 					} else {
 						if(active_groups.indexOf(group_name) != -1) {
 							// User was already a member
-							markEntryCompleted(entry);
+							handleSpecialClickEntry(entry);
 						} else {
 							joinSteamGroup(group_name, group_id, function(success) {
 								var steam_community_down_error = "The Steam Community may be down. " +
@@ -641,10 +641,10 @@
 									// Steam Community is having issues
 									gleamSolverUI.showError(steam_community_down_error);
 									gleamSolverUI.showError('Failed to join group: <a href="https://steamcommunity.com/groups/' + group_name + '">' + group_name + '</a>');
-									markEntryCompleted(entry);
+									handleSpecialClickEntry(entry);
 								} else {
 									setTimeout(function() {
-										markEntryCompleted(entry, function() {
+										handleSpecialClickEntry(entry, function() {
 											// Depending on mode, leave the group, but never leave a group that the user was already a member of
 											if(undoEntry() && active_groups.indexOf(group_name) == -1) {
 												leaveSteamGroup(group_name, group_id, function(success) {
