@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.21
+// @version 1.4.22
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -655,23 +655,24 @@
 									// Steam Community is having issues
 									gleamSolverUI.showError(steam_community_down_error);
 									gleamSolverUI.showError('Failed to join group: <a href="https://steamcommunity.com/groups/' + group_name + '">' + group_name + '</a>');
-									handleSpecialClickEntry(entry);
-								} else {
-									setTimeout(function() {
-										handleSpecialClickEntry(entry, function() {
-											// Depending on mode, leave the group, but never leave a group that the user was already a member of
-											if(undoEntry() && active_groups.indexOf(group_name) == -1) {
-												leaveSteamGroup(group_name, group_id, function(success) {
-													if(!success) {
-														// Steam Community is having issues
-														gleamSolverUI.showError(steam_community_down_error);
-														gleamSolverUI.showError('Failed to leave group: <a href="https://steamcommunity.com/groups/' + group_name + '">' + group_name + '</a>');
-													}
-												});
-											}
-										}, 10000);
-									}, 1000);
+									// Sometimes when Steam Community is having issues, the join will be delayed
+									// Try to complete the entry anyway
 								}
+
+								setTimeout(function() {
+									handleSpecialClickEntry(entry, function() {
+										// Depending on mode, leave the group, but never leave a group that the user was already a member of
+										if(undoEntry() && active_groups.indexOf(group_name) == -1) {
+											leaveSteamGroup(group_name, group_id, function(success) {
+												if(!success) {
+													// Steam Community is having issues
+													gleamSolverUI.showError(steam_community_down_error);
+													gleamSolverUI.showError('Failed to leave group: <a href="https://steamcommunity.com/groups/' + group_name + '">' + group_name + '</a>');
+												}
+											});
+										}
+									}, 10000);
+								}, 1000);
 							});
 						}
 					}
