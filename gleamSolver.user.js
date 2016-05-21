@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.20
+// @version 1.4.21
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -125,6 +125,7 @@
 				mandatory_entry = null,
 				entry_delays = [];
 
+			GM_setValue("script_in_progress", +new Date());
 			entries.sort(function() { return 0.5 - Math.random(); }); // Jumble the order
 			checkAuthentications();
 			num_entries_previously_completed = typeof num_entries_previously_completed == "undefined" ? 0 : num_entries_previously_completed;
@@ -298,6 +299,15 @@
 										}
 									}, 100);
 								}
+							} else if(!gleam.demandingAuth() && gleam.demandingChallenge()) {
+								for(i = 0; i < entry_delays.length; i++) {
+									clearTimeout(entry_delays[i]);
+								}
+
+								GM_setValue("script_in_progress", false);
+								gleamSolverUI.hideNotifications();
+								gleamSolverUI.showNotification("captcha_popup", "Please solve the captcha before continuing.");
+								gleamSolverUI.showUI();
 							} else {
 								// Giveaway is over or completed
 								gleamSolverUI.hideNotification("entry_progress");
@@ -321,11 +331,14 @@
 					clearTimeout(entry_delays[i]);
 				}
 
+				GM_setValue("script_in_progress", false);
 				gleamSolverUI.hideNotifications();
 				gleamSolverUI.showNotification("captcha_popup", "Please solve the captcha before continuing.");
 				gleamSolverUI.showUI();
 			} else if(gleam.campaign.starts_at > Math.floor(+new Date()/1000)) {
 				// The giveaway hasn't started yet, schedule the script to run when it does
+				GM_setValue("script_in_progress", false);
+
 				var temp_interval = setInterval(function() {
 					var current_time = Math.floor(+new Date()/1000),
 						seconds_remaining = gleam.campaign.starts_at - current_time;
@@ -341,6 +354,7 @@
 			} else if(num_entries === 0) {
 				// There were no entries that we could even attempt to auto-complete
 				gleamSolverUI.hideNotification("entry_progress");
+				GM_setValue("script_in_progress", false);
 
 				if(num_skipped !== 0 &&
 					gleam.isRunning() &&
@@ -395,43 +409,43 @@
 		/**
 		 * We don't need to do anything for this, just mark it completed
 		 */
-		function handleFreeEntry(entry, callback) {
+		function handleFreeEntry(entry, callback, max_wait) {
 			markEntryLoading(entry);
-			markEntryCompleted(entry, callback);
+			markEntryCompleted(entry, callback, max_wait);
 		}
 
 		/**
 		 * Trick gleam into thinking we've clicked a link
 		 */
-		function handleClickEntry(entry, callback) {
+		function handleClickEntry(entry, callback, max_wait) {
 			markEntryLoading(entry);
 			entry.triggerVisit(entry.entry_method.id);
-			markEntryCompleted(entry, callback);
+			markEntryCompleted(entry, callback, max_wait);
 		}
 
 		/**
 		 * Looks like a click entry, but calls saveEntryDetails instead of triggerVisit
 		 */
-		function handleSpecialClickEntry(entry, callback) {
+		function handleSpecialClickEntry(entry, callback, max_wait) {
 			markEntryLoading(entry);
 			entry.saveEntryDetails(entry.entry_method);
-			markEntryCompleted(entry, callback);
+			markEntryCompleted(entry, callback, max_wait);
 		}
 
 		/**
 		 * Trick gleam into thinking we've watched a video
 		 */
-		function handleVideoEntry(entry, callback) {
+		function handleVideoEntry(entry, callback, max_wait) {
 			markEntryLoading(entry);
 			entry.entry_method.watched = true;
 			entry.videoWatched(entry.entry_method);
-			markEntryCompleted(entry, callback);
+			markEntryCompleted(entry, callback, max_wait);
 		}
 
 		/**
 		 * Share a random media item from the selection provided
 		 */
-		function handleMediaShare(entry, callback) {
+		function handleMediaShare(entry, callback, max_wait) {
 			// Need to click the entry before entry_method.media can be defined...
 			entry.enterLinkClick(entry.entry_method);
 			markEntryLoading(entry);
@@ -445,7 +459,7 @@
 					clearInterval(temp_interval);
 					entry.entry_method.selected = rand_choice;
 					entry.mediaChoiceContinue(entry.entry_method);
-					markEntryCompleted(entry, callback);
+					markEntryCompleted(entry, callback, max_wait);
 				}
 			}, 100);
 		}
@@ -460,7 +474,7 @@
 		/**
 		 * Custom actions can take on many different forms, decide what it is we're working with here
 		 */
-		function handleCustomAction(entry, callback) {
+		function handleCustomAction(entry, callback, max_wait) {
 			if(entry.entry_method.template != "visit" && (
 					entry.entry_method.method_type == "Ask a question" ||
 					entry.entry_method.method_type == "Allow question or tracking" ||
@@ -509,13 +523,13 @@
 				entry.saveEntryDetails(entry.entry_method);
 			}
 
-			markEntryCompleted(entry, callback);
+			markEntryCompleted(entry, callback, max_wait);
 		}
 
 		/**
 		 * Generate an answer for question entries
 		 */
-		function handleQuestionEntry(entry, callback) {
+		function handleQuestionEntry(entry, callback, max_wait) {
 			var rand_string = null,
 				string_regex = null;
 
@@ -555,7 +569,7 @@
 				if(entry.verifyStatus(entry.entry_method) == "good") {
 					clearInterval(temp_interval);
 					entry.saveEntryDetails(entry.entry_method);
-					markEntryCompleted(entry, callback);
+					markEntryCompleted(entry, callback, max_wait);
 				}
 			}, 100);
 		}
@@ -828,7 +842,7 @@
 								} else if(!already_following) {
 									deleteTwitterFollow(twitter_handle, twitter_id);
 								}
-							});
+							}, 5000);
 						});
 					}
 				}
@@ -860,7 +874,7 @@
 								});
 							}
 						}
-					});
+					}, 5000);
 				}
 
 				/**
@@ -1023,7 +1037,6 @@
 					gleamSolverUI.showNotification("in_progress", "Gleam.solver is currently running on another page.  Please wait.");
 					gleamSolverUI.loadUI();
 				} else {
-					GM_setValue("script_in_progress", +new Date());
 					handleEntries();
 				}
 			},
