@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.22
+// @version 1.4.23
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -645,7 +645,7 @@
 							handleSpecialClickEntry(entry);
 						} else {
 							joinSteamGroup(group_name, group_id, function(success) {
-								var steam_community_down_error = "The Steam Community may be down. " +
+								var steam_community_down_error = "The Steam Community is experiencing issues. " +
 									"Please handle any remaining Steam entries manually.<br>" +
 									"If you're having trouble getting groups to appear on " +
 									'<a href="https://steamcommunity.com/my/groups/">your groups list</a>, ' +
@@ -1036,7 +1036,7 @@
 				if(in_progress !== false && +new Date() - in_progress <= entry_delay_max) {
 					// Prevent the script from running on multiple pages at the same time
 					gleamSolverUI.showNotification("in_progress", "Gleam.solver is currently running on another page.  Please wait.");
-					gleamSolverUI.loadUI();
+					gleamSolverUI.showUI();
 				} else {
 					handleEntries();
 				}
@@ -1122,14 +1122,18 @@
 				"html { overflow-y: scroll !important; }" +
 				".gs__main_container { font-size: 16.5px; left: 0px; position: fixed; text-align: center; top: 0px; width: 100%; z-index: 9999999999; }" +
 				".gs__title { margin-right: 16px; vertical-align: middle; }" +
-				".gs__select { margin: 0px 16px 0px 0px; padding: 4px 2px; width: 150px; }" +
-				".gs__button { height: 22px; }" +
+				".gs__select { margin: 4px 16px 4px 0px; padding: 4px 2px; width: 150px; }" +
+				".gs__button { margin: 4px 0px; height: 22px; }" +
 				".gs__notification { background: #000; border-top: 1px solid rgba(52, 152, 219, .5); box-shadow: 0px 2px 10px rgba(0, 0, 0, .5); box-sizing: border-box; color: #3498db; line-height: 21px; padding: 12px; width: 100%; }" +
 				".gs__error { background: #e74c3c; border-top: 1px solid rgba(255, 255, 255, .5); box-shadow: 0px 2px 10px rgba(231, 76, 60, .5); box-sizing: border-box; color: #fff; line-height: 21px; padding: 12px; width: 100%; }" +
 				".gs__error a { color: #fff; }" +
+				".gs__main_ui { padding-top: 4px; padding-bottom: 4px; }" +
 				".gs__message { font-size: 14px; }" +
 				".gs__quantity { font-style: italic; margin: 12px 0px 0px 0px; }" +
-				".gs__win_chance { display: inline-block; font-size: 14px; line-height: 14px; position: relative; top: -4px; }"
+				".gs__win_chance { display: inline-block; font-size: 14px; line-height: 14px; position: relative; top: -4px; }" +
+				".gs__close { float: right; background: rgba(255, 255, 255, .15); border: 1px solid #fff; box-shadow: 0px 0px 8px rgba(255, 255, 255, .5); cursor: pointer; margin-left: 4px; padding: 0px 4px; }" +
+				".gs__close:hover { background: #fff; color: #e74c3c; }" +
+				".gs__close::before { content: 'x'; position: relative; top: -1px; }"
 			);
 
 		/**
@@ -1173,7 +1177,7 @@
 				var self = this;
 
 				gleam_solver_main_ui =
-					$("<div>", { class: "gs__notification" }).append(
+					$("<div>", { class: "gs__main_ui gs__notification" }).append(
 					$("<span>", { class: "gs__title", text: "Gleam.solver v" + GM_info.script.version })).append(
 					$("<select>", { class: "gs__select" }).append(
 						$("<option>", { text: "Instant-win Mode", value: "undo_all", selected: (gleamSolver.getMode() == "undo_all") })).append(
@@ -1222,8 +1226,20 @@
 			showError: function(msg) {
 				// Don't print the same error multiple times
 				if(active_errors.indexOf(msg) == -1) {
+					var self = this;
+
 					active_errors.push(msg);
-					gleam_solver_container.append($("<div>", { class: "gs__error gs__message" }).html("<strong>Error</strong>: " + msg));
+					gleam_solver_container.append(
+						$("<div>", { class: "gs__error gs__message" }).html("<strong>Error</strong>: " + msg).prepend(
+							$("<div>", { class: "gs__close" }).click(function() {
+								$(this).unbind("click");
+								$(this).parent().slideUp(400, function() {
+									active_errors.splice(active_errors.indexOf(msg), 1);
+									$(this).remove();
+									updateTopMargin();
+								});
+							})
+						));
 					updateTopMargin();
 				}
 			},
