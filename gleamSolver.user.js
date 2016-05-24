@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.23
+// @version 1.4.24
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -478,11 +478,11 @@
 			if(entry.entry_method.template != "visit" && (
 					entry.entry_method.method_type == "Ask a question" ||
 					entry.entry_method.method_type == "Allow question or tracking" ||
-					entry.entry_method.config5 ||
-					entry.entry_method.config6
+					entry.entry_method.config5 !== null ||
+					entry.entry_method.config6 !== null
 				)
 			) {
-				if(entry.entry_method.config5 !== null) {
+				if(entry.entry_method.config5 !== null && entry.entry_method.config5 !== "") {
 					// config5 contains a bunch of answers in CSV format
 					handleMultipleChoiceQuestionEntry(entry, callback);
 				} else {
@@ -491,10 +491,10 @@
 				}
 			} else {
 				// We're being asked to click a link, and a question may appear after we've done so
-				if(entry.entry_method.config5 !== null) {
+				if(entry.entry_method.config5 !== null && entry.entry_method.config5 !== "") {
 					handleClickEntry(entry, false);
 					handleMultipleChoiceQuestionEntry(entry, callback);
-				} else if(entry.entry_method.config6 !== null) {
+				} else if(entry.entry_method.config5 !== null || entry.entry_method.config6 !== null) {
 					handleClickEntry(entry, false);
 					handleQuestionEntry(entry, callback);
 				} else {
