@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.4.24
+// @version 1.4.25
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -467,7 +467,7 @@
 		/**
 		 * Upload a file
 		 */
-		function handleUploadEntry(entry, callback) {
+		function handleUploadEntry(entry, callback, max_wait) {
 			// TODO: Example at https://gleam.io/W4GAG/every-entry-type "Upload a Video of You Singing"
 		}
 
@@ -484,21 +484,21 @@
 			) {
 				if(entry.entry_method.config5 !== null && entry.entry_method.config5 !== "") {
 					// config5 contains a bunch of answers in CSV format
-					handleMultipleChoiceQuestionEntry(entry, callback);
+					handleMultipleChoiceQuestionEntry(entry, callback, max_wait);
 				} else {
 					// config6 is used to verify a text entry
-					handleQuestionEntry(entry, callback);
+					handleQuestionEntry(entry, callback, max_wait);
 				}
 			} else {
 				// We're being asked to click a link, and a question may appear after we've done so
 				if(entry.entry_method.config5 !== null && entry.entry_method.config5 !== "") {
 					handleClickEntry(entry, false);
-					handleMultipleChoiceQuestionEntry(entry, callback);
+					handleMultipleChoiceQuestionEntry(entry, callback, max_wait);
 				} else if(entry.entry_method.config5 !== null || entry.entry_method.config6 !== null) {
 					handleClickEntry(entry, false);
-					handleQuestionEntry(entry, callback);
+					handleQuestionEntry(entry, callback, max_wait);
 				} else {
-					handleClickEntry(entry, callback);
+					handleClickEntry(entry, callback, max_wait);
 				}
 			}
 		}
@@ -506,7 +506,7 @@
 		/**
 		 * Choose an answer to a multiple choice question
 		 */
-		function handleMultipleChoiceQuestionEntry(entry, callback) {
+		function handleMultipleChoiceQuestionEntry(entry, callback, max_wait) {
 			var choices = entry.entry_method.config5.split("\n"),
 				rand_choice = choices[Math.floor(Math.random() * choices.length)];
 
