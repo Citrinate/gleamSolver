@@ -25,15 +25,16 @@ You might use this mode if you would like the script to auto-undo the actions on
 
 The script **can** undo all actions on these accounts:
   * Steam
+  * TwitchTV
   * Twitter
 
 The script **cannot** undo any actions on these accounts:
+  * E-mail
   * Eventbrite
   * Facebook
   * Instagram
   * Soundcloud
   * Tumblr
-  * TwitchTV
   * Youtube
 
 ##Installation
