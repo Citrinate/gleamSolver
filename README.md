@@ -6,7 +6,13 @@ This script will auto-complete a Gleam.io giveaway and then, based on your prefe
 
 Check out [Gleam.helper](https://github.com/Citrinate/gleamHelper) if you're looking for the convenience this script provides, but without any of the automation.
 
-### Modes
+## Donations
+
+Gleam.io no longer allows [limited Steam accounts](https://support.steampowered.com/kb_article.php?ref=3330-IAGK-7663), a move which will restrict my ability to continue supporting this script.  If you're feeling generous, please consider making a donation that will go towards future development.  Any games I purchase with your donation will be given away at [SteamGifts.com](https://www.steamgifts.com).
+
+[![Paypal](https://img.shields.io/badge/paypal-donate-yellow.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=UFATJKN7H7K2Y&lc=US&item_name=Gleam%2eio%20Userscript%20Development&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted) [![Bitcoin](https://img.shields.io/badge/bitcoin-donate-yellow.svg)](http://pastebin.com/raw/wHNyz5rd)
+
+## Modes
 #####Instant-win mode
 
 The script will automatically complete the required social media activities, and then after you've received credit for doing so, it will automatically undo them.  For example, if you're required to join a certain Steam group, it will join that group, give you credit for it, and then leave the group. If you were already the member of that group, then the script give you credit for being a member, but it will not leave the group.
