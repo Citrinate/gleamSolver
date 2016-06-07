@@ -10,7 +10,7 @@ Check out [Gleam.helper](https://github.com/Citrinate/gleamHelper) if you're loo
 
 Gleam.io no longer allows [limited Steam accounts](https://support.steampowered.com/kb_article.php?ref=3330-IAGK-7663), a move which will restrict my ability to continue supporting this script.  If you're feeling generous, please consider making a donation that will go towards future development.  Any games I purchase with your donation will be given away at [SteamGifts.com](https://www.steamgifts.com).
 
-[![Paypal](https://img.shields.io/badge/paypal-donate-yellow.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=UFATJKN7H7K2Y&lc=US&item_name=Gleam%2eio%20Userscript%20Development&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted) [![Bitcoin](https://img.shields.io/badge/bitcoin-donate-yellow.svg)](http://pastebin.com/raw/wHNyz5rd)
+[![Paypal](https://img.shields.io/badge/paypal-donate-yellow.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=UFATJKN7H7K2Y&lc=US&item_name=Gleam%2eio%20Userscript%20Development&currency_code=USD&bn=PP%2dDonationsBF%3abtn_donateCC_LG%2egif%3aNonHosted) [![Bitcoin](https://img.shields.io/badge/bitcoin-donate-yellow.svg)](https://blockchain.info/address/17rH1NdtUxU5pEcvamnqPCpKWdqr74zkBU)
 
 ## Modes
 #####Instant-win mode
