@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.5.1
+// @version 1.5.2
 // @match https://gleam.io/*
 // @match https://player.twitch.tv/
 // @connect steamcommunity.com
@@ -33,8 +33,9 @@
 			entry_delay_max = 3000,
 			valid_modes = [
 				"undo_all", // Instant-win mode: There should be no public record of any social media activity on the user's accounts.
+				"undo_some", // Instant-win+ mode: Mark all entries and remove all possible public record of social media activity on the user's accounts.
 				"undo_none", // Raffle mode: All public record of social media activity should remain on the user's accounts.
-				"undo_some" // Instant-win Plus mode: Mark all entries and remove all possible public record of social media activity on the user's accounts.
+				"undo_none_plus" // Raffle+ mode: All public record of social media activity should remain on the user's accounts, complete all entries even if they may disqualify in a raffle.
 			];
 
 		/**
@@ -54,7 +55,7 @@
 		 * @return {Boolean} undo - True if we're meant to undo the entries, false otherwise
 		 */
 		function undoEntry() {
-			return script_mode != "undo_none";
+			return script_mode != "undo_none" && script_mode != "undo_none_plus";
 		}
 
 		/**
@@ -141,6 +142,8 @@
 					hasEnoughDetails(entry.entry_method) && // We don't need to provide any details
 					hasAuthentications(entry.entry_method) && // The neccessary account is linked
 					gleam.isRunning() && // The giveaway is still going on
+					!gleam.campaign.banned &&
+					gleam.contestantState.location_allowed && // We haven't been region restricted
 					!(gleam.isReward() && !!gleam.contestantState.contestant.claims[gleam.incentives[0].id]) && // We haven't recieved a reward
 					!(!gleam.demandingAuth() && gleam.demandingChallenge()) // We don't have a captcha to solve
 				) {
@@ -183,6 +186,10 @@
 										case "twitchtv_enter":
 										case "twitter_enter":
 											handleFreeEntry(entry);
+											break;
+
+										case "instagram_visit_profile":
+											handleConfirmEntry(entry);
 											break;
 
 										case "steam_join_group":
@@ -423,7 +430,7 @@
 		 */
 		function handleClickEntry(entry, callback, max_wait) {
 			markEntryLoading(entry);
-			entry.triggerVisit(entry.entry_method.id);
+			entry.triggerVisit(entry.entry_method.id, false);
 			markEntryCompleted(entry, callback, max_wait);
 		}
 
@@ -433,6 +440,15 @@
 		function handleSpecialClickEntry(entry, callback, max_wait) {
 			markEntryLoading(entry);
 			entry.saveEntryDetails(entry.entry_method);
+			markEntryCompleted(entry, callback, max_wait);
+		}
+
+		/**
+		 *
+		 */
+		function handleConfirmEntry(entry, callback, max_wait) {
+			markEntryLoading(entry);
+			entry.confirmAction(entry.entry_method, "V");
 			markEntryCompleted(entry, callback, max_wait);
 		}
 
@@ -1327,8 +1343,9 @@
 					$("<span>", { class: "gs__title", text: "Gleam.solver v" + GM_info.script.version })).append(
 					$("<select>", { class: "gs__select" }).append(
 						$("<option>", { text: "Instant-win Mode", value: "undo_all", selected: (gleamSolver.getMode() == "undo_all") })).append(
+						$("<option>", { text: "Instant-win+ Mode", value: "undo_some", selected: (gleamSolver.getMode() == "undo_some") })).append(
 						$("<option>", { text: "Raffle Mode", value: "undo_none", selected: (gleamSolver.getMode() == "undo_none") })).append(
-						$("<option>", { text: "Instant-win Plus Mode", value: "undo_some", selected: (gleamSolver.getMode() == "undo_some") })).change(function() {
+						$("<option>", { text: "Raffle+ Mode", value: "undo_none_plus", selected: (gleamSolver.getMode() == "undo_none_plus") })).change(function() {
 							gleamSolver.setMode($(this).val());
 						})).append(
 					$("<a>", { text: "Auto-complete", class: "gs__button btn btn-embossed btn-info" }).click(function() {
