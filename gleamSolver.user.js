@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.5.2
+// @version 1.5.3
 // @match https://gleam.io/*
 // @match https://player.twitch.tv/
 // @connect steamcommunity.com
@@ -29,8 +29,6 @@
 		var gleam = null,
 			script_mode = null,
 			authentications = {},
-			entry_delay_min = 500,
-			entry_delay_max = 3000,
 			valid_modes = [
 				"undo_all", // Instant-win mode: There should be no public record of any social media activity on the user's accounts.
 				"undo_some", // Instant-win+ mode: Mark all entries and remove all possible public record of social media activity on the user's accounts.
@@ -116,6 +114,32 @@
 		}
 
 		/**
+		 * Generate a random amount of time to wait between handling each entry
+		 * @param {Boolean} max - When true, returns the maximum possible value for delay
+		 * @return {Number} delay
+		 */
+		function getDelay(max) {
+			var random = max === true ? () => 1 : Math.random,
+				entry_delay_min = (random() * 250) + 900,
+				entry_delay_max = entry_delay_min * ((random() * 1) + 1.5),
+				entry_delay_slow_multiplier_min = (random() * 0.5) + 1.0,
+				entry_delay_slow_multiplier_max = (random() * 0.5) + 2.0,
+				entry_delay_slow_chance = GM_getValue("entry_delay_slow_chance", false);
+
+			if(entry_delay_slow_chance === false) {
+				entry_delay_slow_chance = (Math.random() * 0.25) + 0.1;
+				GM_setValue("entry_delay_slow_chance", entry_delay_slow_chance);
+			}
+
+			return Math.floor(
+				((random() * (entry_delay_max - entry_delay_min)) + entry_delay_min) *
+				(random() > (1 - entry_delay_slow_chance) ?
+					(random() * (entry_delay_slow_multiplier_max - entry_delay_slow_multiplier_min)) + entry_delay_slow_multiplier_min : 1
+				)
+			);
+		}
+
+		/**
 		 * Decide what to do for each of the entries
 		 */
 		function handleEntries(num_entries_previously_completed) {
@@ -147,8 +171,9 @@
 					!(gleam.isReward() && !!gleam.contestantState.contestant.claims[gleam.incentives[0].id]) && // We haven't recieved a reward
 					!(!gleam.demandingAuth() && gleam.demandingChallenge()) // We don't have a captcha to solve
 				) {
-					// Wait a random amount of time between each attempt, to appear more human
-					delay += Math.floor(Math.random() * (entry_delay_max - entry_delay_min)) + entry_delay_min;
+					// Wait a random amount of time between each attempt
+					delay += getDelay();
+
 					num_entries++;
 
 					if(num_entries_previously_completed === 0) {
@@ -1195,7 +1220,7 @@
 			completeEntries: function() {
 				var in_progress = GM_getValue("script_in_progress", false);
 
-				if(in_progress !== false && +new Date() - in_progress <= entry_delay_max) {
+				if(in_progress !== false && +new Date() - in_progress <= getDelay(true)) {
 					// Prevent the script from running on multiple pages at the same time
 					gleamSolverUI.showNotification("in_progress", "Gleam.solver is currently running on another page.  Please wait.");
 					gleamSolverUI.showUI();
