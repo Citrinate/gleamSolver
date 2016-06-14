@@ -1,4 +1,7 @@
-#Gleam.solver
+#This script is no longer being maintained
+See [here](https://github.com/Citrinate/gleamSolver/issues/12) for more information.  Please consider switching to [Gleam.helper](https://github.com/Citrinate/gleamHelper) as an alternative.
+
+##Gleam.solver
 
 This script will auto-complete a Gleam.io giveaway and then, based on your preferences, will auto-undo any actions the giveaway forces you to complete.
 
@@ -6,7 +9,7 @@ This script will auto-complete a Gleam.io giveaway and then, based on your prefe
 
 Check out [Gleam.helper](https://github.com/Citrinate/gleamHelper) if you're looking for the convenience this script provides, but without any of the automation.
 
-## Modes
+### Modes
 #####Instant-win mode
 
 The script will automatically complete the required social media activities, and then after you've received credit for doing so, it will automatically undo them.  For example, if you're required to join a certain Steam group, it will join that group, give you credit for it, and then leave the group. If you were already the member of that group, then the script give you credit for being a member, but it will not leave the group.
@@ -41,7 +44,7 @@ The script **cannot** undo any actions on these accounts:
 
 An extension of Raffle mode.  Nothing is undone in this mode, but everything is completed (even if it might disqualify you in a raffle).
 
-##Installation
+###Installation
 1. Install [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) (for Chrome) or [Greasemonkey](https://addons.mozilla.org/en-US/firefox/addon/greasemonkey/) (for Firefox)
 2. Go [here](https://raw.githubusercontent.com/Citrinate/gleamSolver/master/gleamSolver.user.js)
 3. Click "Install"

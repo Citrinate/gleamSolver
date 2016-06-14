@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamSolver
 // @description Automates Gleam.io giveaways
 // @author Citrinate
-// @version 1.5.3
+// @version 1.5.4
 // @match https://gleam.io/*
 // @match https://player.twitch.tv/
 // @connect steamcommunity.com
@@ -1205,9 +1205,17 @@
 						// Wait for gleam to fully finish loading
 						var another_temp_interval = setInterval(function() {
 							if(typeof gleam.campaign.entry_count !== "undefined") {
+								var end_support_msg = GM_getValue("end_support_msg", true);
+
 								clearInterval(another_temp_interval);
 								script_mode = determineMode();
 								gleamSolverUI.loadUI();
+
+								if(end_support_msg) {
+									gleamSolverUI.showError('This script is no longer being maintained.  Continued use of this script is likely to get your account banned.  Please consider switching to the alternative script: <a href="https://github.com/Citrinate/gleamHelper" target="_blank">Gleam.helper</a>.', function() {
+										GM_setValue("end_support_msg", false);
+									});
+								}
 							}
 						}, 100);
 					}
@@ -1411,7 +1419,7 @@
 			/**
 			 * Print an error
 			 */
-			showError: function(msg) {
+			showError: function(msg, callback) {
 				// Don't print the same error multiple times
 				if(active_errors.indexOf(msg) == -1) {
 					var self = this;
@@ -1425,6 +1433,10 @@
 									active_errors.splice(active_errors.indexOf(msg), 1);
 									$(this).remove();
 									updateTopMargin();
+
+									if(typeof callback == "function") {
+										callback();
+									}
 								});
 							})
 						));
