@@ -1,5 +1,5 @@
 #This script is no longer being maintained
-See [here](https://github.com/Citrinate/gleamSolver/issues/12) for more information.  Please consider switching to [Gleam.helper](https://github.com/Citrinate/gleamHelper) as an alternative.
+See [here](https://github.com/Citrinate/gleamSolver/issues/12) for more information.  Please consider switching to [Giveaway Helper](https://github.com/Citrinate/giveawayHelper) as an alternative.
 
 ##Gleam.solver
 
