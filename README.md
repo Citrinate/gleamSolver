@@ -1,13 +1,13 @@
 # This script is no longer being maintained
-See [here](https://github.com/Citrinate/gleamSolver/issues/12) for more information.  Please consider switching to [Giveaway Helper](https://github.com/Citrinate/giveawayHelper) as an alternative.
+Please consider switching to [Giveaway Helper](https://github.com/Citrinate/giveawayHelper) as an alternative.
 
 ## Gleam.solver
 
 This script will auto-complete a Gleam.io giveaway and then, based on your preferences, will auto-undo any actions the giveaway forces you to complete.
 
-**Disclaimer: The usage of this script violates Gleam.io's Terms of Service.  Use at your own risk.**
+**Disclaimer: The usage of this script violates Gleam.io's Terms of Service.  You will be banned for using this script.  Use at your own peril.**
 
-Check out [Gleam.helper](https://github.com/Citrinate/gleamHelper) if you're looking for the convenience this script provides, but without any of the automation.
+Check out [Giveaway Helper](https://github.com/Citrinate/giveawayHelper) if you're looking for the convenience this script provides, but without any of the automation.
 
 ### Modes
 ##### Instant-win mode
