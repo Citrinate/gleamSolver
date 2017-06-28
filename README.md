@@ -5,7 +5,7 @@ Please consider switching to [Giveaway Helper](https://github.com/Citrinate/give
 
 This script will auto-complete a Gleam.io giveaway and then, based on your preferences, will auto-undo any actions the giveaway forces you to complete.
 
-**Disclaimer: The usage of this script violates Gleam.io's Terms of Service.  You will be banned for using this script.  Use at your own peril.**
+**Disclaimer: You will be banned for using this script.  Use at your own peril.**
 
 Check out [Giveaway Helper](https://github.com/Citrinate/giveawayHelper) if you're looking for the convenience this script provides, but without any of the automation.
 
